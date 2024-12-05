@@ -27,7 +27,6 @@ var scene;
 var cameraPivot;
 var camera;
 var cameraDirection;
-var cameraFrustum;
 
 // camera gravity perpendiculars
 // we move along these axes
@@ -38,9 +37,7 @@ var directionCameraGravityForwardArrowHelper;
 var directionCameraGravityRightArrowHelper;
 
 //
-var cameraPointerLockDirection = new THREE.Vector3(0,0,0);
-var cameraPointerLockDirectionToAngle = 0.0;
-var cameraRotationYAltered = 0.0;
+var indexTriangle = -1;
 
 // clock
 var clock;
@@ -76,13 +73,13 @@ var terrainObjectVertexNormals = [];
 var terrainObjectTrianglePositions = [];
 var terrainObjectTriangleNormals = [];
 
+//
+var arrayArrowHelpers = [];
+
 // to be used
 // to convert local-space normals to world-space normals
 var normalMatrix = new THREE.Matrix3(); // create once and reuse
 var worldNormal = new THREE.Vector3(); // create once and reuse
-
-// player
-var playerRayCaster;
 
 // earth and sky
 var earthbox;
@@ -93,29 +90,21 @@ const terrainColor = new THREE.Color("hsl(0,50%,80%)");
 
 // hud
 var hudReticle;
+var hudTextControls;
+var hudTextControlsDouble;
 var hudTextStatus;
-
-// operating system (OS)
-var isMac = true;
-var isWindows = false;
-
+var hudTextStatusDouble;
 
 // controls
 var hasControls = false;
 
-// mouse
-var controlsPointerLock;
+//
+var mouseX = 0;
+var mouseY = 0;
 
 //
-const throttleMaxCollisionPlayerToTerrain = 0.8;
-var throttleCollisionPlayerToTerrain = 0;
-
-//
-const throttleMaxTextLog = 1.0;
+const throttleMaxTextLog = 0.2;
 var throttleTextLog = 0;
-
-//
-const resultVec3 = new THREE.Vector3();
 
 //
 init();
@@ -137,6 +126,7 @@ function init()
         scene.add(cameraPivot);
         camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
 
+        // I think was just needed for OrbitControls, which we are not using
         //camera.up.set(0,0,1);
         camera.up.set(0,1,0);
 
@@ -144,9 +134,6 @@ function init()
         cameraPivot.add(camera);
         cameraDirection = new THREE.Vector3();
         camera.getWorldDirection(cameraDirection);
-
-        //
-        generateFrustum();
 
         // camera gravity perpendiculars
         // we move along these axes
@@ -178,8 +165,6 @@ function init()
     }
     function initPlayer()
     {
-        //
-        playerRayCaster = new THREE.Raycaster();
     }
     function initEarthAndSky()
     {
@@ -317,6 +302,8 @@ function init()
             }
         );
 
+        return;
+
         // Load a glTF resource
         loaderGLTF.load
         (
@@ -345,39 +332,186 @@ function init()
     function initHUD()
     {
         //
+        hudTextControls = document.createElement("p");
+        hudTextControls.style.position = "fixed";
+        hudTextControls.style.zIndex = "2";
+        hudTextControls.style.top = "12px";
+        hudTextControls.style.right = "24px";
+        hudTextControls.style.color = "black";
+        hudTextControls.style.fontSize = "14px";
+        hudTextControls.style.lineHeight = "16px";
+        hudTextControls.style.whiteSpace = "pre-wrap";
+        hudTextControls.style.fontFamily = "monospace";
+        hudTextControls.style.display = "flex";
+        hudTextControls.style.userSelect = "none";
+
+        hudTextControls.style.webkitTextStroke = "3.0px black";
+        hudTextControls.style.textStroke = "3.0px black";
+
+        document.body.appendChild(hudTextControls);
+
+        //
+        hudTextControlsDouble = document.createElement("p");
+        hudTextControlsDouble.style.position = "fixed";
+        hudTextControlsDouble.style.zIndex = "3";
+        hudTextControlsDouble.style.top = "12px";
+        hudTextControlsDouble.style.right = "24px";
+        hudTextControlsDouble.style.color = "#FFFFFF";
+        hudTextControlsDouble.style.fontSize = "14px";
+        hudTextControlsDouble.style.lineHeight = "16px";
+        hudTextControlsDouble.style.whiteSpace = "pre-wrap";
+        hudTextControlsDouble.style.fontFamily = "monospace";
+        hudTextControlsDouble.style.display = "flex";
+        hudTextControlsDouble.style.userSelect = "none";
+
+        hudTextControlsDouble.style.webkitTextStroke = "none";
+        hudTextControlsDouble.style.textStroke = "none";
+        
+        document.body.appendChild(hudTextControlsDouble);
+
+        //
+        const stringRes = "[LeftClick] the screen\nto start controlling\n\n[W][A][S][D] to move\nperpendicular to current gravity\n\n[Spacebar] to update gravity direction\nto the closest triangle's normal direction\n\nWhen doing so,\nI want to unskew the camera\nto align with the current plane\nBut I don't know how to yet\n\n[LeftArrow][RightArrow] to\ntilt camera with camera.rotateZ()\n\n[1] to teleport to center of triangle\n[2] to .lookAt() center point\n\n[1]→[2] will correctly\nunskew the camera\nto align with the current plane";
+        hudTextControls.textContent = stringRes;
+        hudTextControlsDouble.textContent = stringRes;
+
+        //
         hudTextStatus = document.createElement("p");
-        hudTextStatus.textContent = "";
         hudTextStatus.style.position = "fixed";
         hudTextStatus.style.zIndex = "2";
-        hudTextStatus.style.top = "48px";
-        hudTextStatus.style.left = "0";
-        hudTextStatus.style.backgroundColor = "#000000";
-        hudTextStatus.style.color = "#A0A0A0";
+        hudTextStatus.style.top = "12px";
+        hudTextStatus.style.left = "24px";
+        hudTextStatus.style.color = "black";
         hudTextStatus.style.fontSize = "14px";
         hudTextStatus.style.lineHeight = "16px";
         hudTextStatus.style.whiteSpace = "pre-wrap";
         hudTextStatus.style.fontFamily = "monospace";
-        hudTextStatus.style.display = "none";
+        hudTextStatus.style.display = "flex";
+
+        hudTextStatus.style.webkitTextStroke = "3.0px black";
+        hudTextStatus.style.textStroke = "3.0px black";
+
         document.body.appendChild(hudTextStatus);
+
+        //
+        hudTextStatusDouble = document.createElement("p");
+        hudTextStatusDouble.style.position = "fixed";
+        hudTextStatusDouble.style.zIndex = "3";
+        hudTextStatusDouble.style.top = "12px";
+        hudTextStatusDouble.style.left = "24px";
+        hudTextStatusDouble.style.color = "#FFFFFF";
+        hudTextStatusDouble.style.fontSize = "14px";
+        hudTextStatusDouble.style.lineHeight = "16px";
+        hudTextStatusDouble.style.whiteSpace = "pre-wrap";
+        hudTextStatusDouble.style.fontFamily = "monospace";
+        hudTextStatusDouble.style.display = "flex";
+        hudTextStatusDouble.style.userSelect = "none";
+
+        hudTextStatusDouble.style.webkitTextStroke = "none";
+        hudTextStatusDouble.style.textStroke = "none";
+        
+        document.body.appendChild(hudTextStatusDouble);
+
+        //
+        hudReticle = document.createElement("div");
+        hudReticle.style.position = "fixed";
+        hudReticle.style.zIndex = "2";
+        hudReticle.style.top = "calc(50% - 15px)";
+        hudReticle.style.left = "calc(50% - 15px)";
+        hudReticle.style.width = "30px";
+        hudReticle.style.height = "30px";
+        hudReticle.style.transform = "rotate(45deg)";
+        document.body.appendChild(hudReticle);
+        //
+        var hudReticleTop = document.createElement("div");
+        hudReticleTop.style.position = "absolute";
+        hudReticleTop.style.top = "0";
+        hudReticleTop.style.left = "5px";
+        hudReticleTop.style.background = "#00FF00";
+        hudReticleTop.style.height = "5px";
+        hudReticleTop.style.width = "20px";
+        hudReticleTop.style.borderTop = "1px solid black";
+        hudReticleTop.style.borderBottom = "1px solid black";
+        hudReticle.appendChild(hudReticleTop);
+        //
+        var hudReticleBottom = document.createElement("div");
+        hudReticleBottom.style.position = "absolute";
+        hudReticleBottom.style.bottom = "0";
+        hudReticleBottom.style.left = "5px";
+        hudReticleBottom.style.background = "#00FF00";
+        hudReticleBottom.style.height = "5px";
+        hudReticleBottom.style.width = "20px";
+        hudReticleBottom.style.borderTop = "1px solid black";
+        hudReticleBottom.style.borderBottom = "1px solid black";
+        hudReticle.appendChild(hudReticleBottom);
+        //
+        var hudReticleLeft = document.createElement("div");
+        hudReticleLeft.style.position = "absolute";
+        hudReticleLeft.style.top = "5px";
+        hudReticleLeft.style.left = "0";
+        hudReticleLeft.style.background = "#00FF00";
+        hudReticleLeft.style.height = "20px";
+        hudReticleLeft.style.width = "5px";
+        hudReticleLeft.style.borderLeft = "1px solid black";
+        hudReticleLeft.style.borderRight = "1px solid black";
+        hudReticle.appendChild(hudReticleLeft);
+        //
+        var hudReticleRight = document.createElement("div");
+        hudReticleRight.style.position = "absolute";
+        hudReticleRight.style.top = "5px";
+        hudReticleRight.style.right = "0";
+        hudReticleRight.style.background = "#00FF00";
+        hudReticleRight.style.height = "20px";
+        hudReticleRight.style.width = "5px";
+        hudReticleRight.style.borderLeft = "1px solid black";
+        hudReticleRight.style.borderRight = "1px solid black";
+        hudReticle.appendChild(hudReticleRight);
+        //
+        var hudReticleTopLeft = document.createElement("div");
+        hudReticleTopLeft.style.position = "absolute";
+        hudReticleTopLeft.style.top = "0";
+        hudReticleTopLeft.style.left = "0";
+        hudReticleTopLeft.style.background = "#00FF00";
+        hudReticleTopLeft.style.height = "5px";
+        hudReticleTopLeft.style.width = "5px";
+        hudReticleTopLeft.style.borderTop = "1px solid black";
+        hudReticleTopLeft.style.borderLeft = "1px solid black";
+        hudReticle.appendChild(hudReticleTopLeft);
+        //
+        var hudReticleTopRight = document.createElement("div");
+        hudReticleTopRight.style.position = "absolute";
+        hudReticleTopRight.style.top = "0";
+        hudReticleTopRight.style.right = "0";
+        hudReticleTopRight.style.background = "#00FF00";
+        hudReticleTopRight.style.height = "5px";
+        hudReticleTopRight.style.width = "5px";
+        hudReticleTopRight.style.borderTop = "1px solid black";
+        hudReticleTopRight.style.borderRight = "1px solid black";
+        hudReticle.appendChild(hudReticleTopRight);
+        //
+        var hudReticleBottomLeft = document.createElement("div");
+        hudReticleBottomLeft.style.position = "absolute";
+        hudReticleBottomLeft.style.bottom = "0";
+        hudReticleBottomLeft.style.left = "0";
+        hudReticleBottomLeft.style.background = "#00FF00";
+        hudReticleBottomLeft.style.height = "5px";
+        hudReticleBottomLeft.style.width = "5px";
+        hudReticleBottomLeft.style.borderBottom = "1px solid black";
+        hudReticleBottomLeft.style.borderLeft = "1px solid black";
+        hudReticle.appendChild(hudReticleBottomLeft);
+        //
+        var hudReticleBottomRight = document.createElement("div");
+        hudReticleBottomRight.style.position = "absolute";
+        hudReticleBottomRight.style.bottom = "0";
+        hudReticleBottomRight.style.right = "0";
+        hudReticleBottomRight.style.background = "#00FF00";
+        hudReticleBottomRight.style.height = "5px";
+        hudReticleBottomRight.style.width = "5px";
+        hudReticleBottomRight.style.borderBottom = "1px solid black";
+        hudReticleBottomRight.style.borderRight = "1px solid black";
+        hudReticle.appendChild(hudReticleBottomRight);
     }
     function initControls()
     {
-        /*
-        //
-        controlsPointerLock = new PointerLockControls(camera, document.body);
-
-        //
-        controlsPointerLock.addEventListener("change", handleMouseChange);
-        controlsPointerLock.addEventListener("lock", handleMouseLock);
-        controlsPointerLock.addEventListener("unlock", handleMouseUnlock);
-        */
-
-        //
-        /*document.addEventListener("click", async () => {
-            await document.requestPointerLock();
-            await renderer.domElement.requestPointerLock();
-        });*/
-
         //
         document.addEventListener("pointerlockchange", handlePointerLockChange, false);
 
@@ -385,16 +519,11 @@ function init()
         document.addEventListener("mousemove", handleMouseMove);
 
         //
-        document.addEventListener("keydown", handleKeyDown);
-        document.addEventListener("keyup", handleKeyUp);
-    }
-    function initEventListeners()
-    {
-        //
         document.addEventListener("mousedown", handleMouseDown, false);
 
         //
-        //renderer.domElement.addEventListener("mousedown", handleCanvasMouseDown, false);
+        document.addEventListener("keydown", handleKeyDown);
+        document.addEventListener("keyup", handleKeyUp);
     }
 
     //
@@ -413,7 +542,6 @@ function init()
     initGeometry();
     initHUD();
     initControls();
-    initEventListeners();
 
     //
     update();
@@ -462,31 +590,9 @@ function loadOBJ(obj)
     // test, idk if this works
     const helper = new VertexNormalsHelper( terrainObject, 1, 0xff0000 );
     scene.add(helper);
-
-    //
-    printMeshInfo();
     
+    //
     setDefaultValues();
-    
-    return;
-
-    //
-    handleMouseRightClick(null);
-
-    //
-    setTimeout((() => {
-        attemptToMoveToTriangleCenter();
-        attemptToLookAtTriangleCenter();
-    }), 400);
-
-    setTimeout((() => {
-
-        console.dir(directionCameraGravityForward);
-        cameraPivot.position.y += directionCameraGravityForward.y * -10.0;
-
-    }), 2400);
-    
-
 }
 
 function setDefaultValues()
@@ -504,249 +610,6 @@ function setDefaultValues()
     cameraPivot.rotation.x = 1.9237233376776695;
     cameraPivot.rotation.y = 0.3477231005796906;
     cameraPivot.rotation.z = 2.9216718773123658;
-}
-
-function loadGLTF(gltf)
-{
-    //alternatively:
-    //gltf.scene.children[0];
-
-    //
-    gltf.scene.scale.x *= 20.0;
-    gltf.scene.scale.y *= 20.0;
-    gltf.scene.scale.z *= 20.0;
-    gltf.scene.position.y -= 3.0;
-    scene.add(gltf.scene);
-
-    //
-    /*
-    gltf.animations; // Array<THREE.AnimationClip>
-    gltf.scene; // THREE.Group
-    gltf.scenes; // Array<THREE.Group>
-    gltf.cameras; // Array<THREE.Camera>
-    gltf.asset; // Object
-    */
-
-
-
-    /*var uniforms = {
-        uTime: {type: "float", value: 0.0},
-        map: { type: "t", value: defaultTexture},
-    };
-    var newMaterial = new THREE.ShaderMaterial(
-    {
-        side: THREE.FrontSide,
-        uniforms: uniforms,
-        vertexShader: shaderVertexDefault.shaderVertexDefault,
-        fragmentShader: shaderFragmentDefault.shaderFragmentDefault
-    });*/
-
-    // object that contains the mesh
-    //console.log(gltf.scene.children[0]);
-    // the mesh itself
-    terrainObject = gltf.scene.children[0].children[0];
-
-    // if we want to force smooth shading
-    //convertToSmoothShading(terrainObject);
-
-    // if we want to force flat shading
-    //convertToFlatShading(terrainObject);
-
-    //
-    // we either generate bounding boxes here
-    // (best)
-    // or we do it in update
-    // (worst)
-    // but then we get to see them formed :)
-
-    // so for now
-    // we comment this out
-    //generateBoundingBoxes(terrainObject, count, itemSize, 0);
-    
-    var hasMaterialMap = false;
-    var hasNoMaterialMap = false;
-
-    var countSceneItem = 0;
-    var countMeshes = 0;
-    var countMaterials = 0;
-
-    //gltf.scene.children[0]
-    terrainObject.traverse((o) =>
-    {
-        if(o.isMesh)
-        {
-            if(o.material != null)
-            {
-                if(o.material.map != null)
-                {
-                    hasMaterialMap = true;
-
-                    const oTexture = o.material.map;
-                    gltf.scene.background = oTexture;
-                    //uniforms.map.value = oTexture;
-                    //o.material = newMaterial;
-                }
-                else 
-                {
-                    hasNoMaterialMap = true;
-
-                    //console.log("uniforms.map.value:");
-                    //console.log(uniforms.map.value);
-
-                    //uniforms.map.value = defaultTexture;
-                    
-                    //o.material = newMaterial;
-                    o.material = new THREE.MeshStandardMaterial({ 
-                        wireframe: false,
-                        //color: terrainColor,
-                        //vertexColors: THREE.FaceColors,
-                        vertexColors: true,
-                        //flatShading: true,
-                        roughness: 1.0,
-                        metalness: 0.0,
-                    });
-                    o.material.needsUpdate = true;
-                }
-            }
-        }
-    });
-
-    //
-    generateVertexColors(terrainObject.geometry);
-    reGenerateVertexColors(terrainObject.geometry);
-
-    //
-    const terrainObjectPositionAttribute = terrainObject.geometry.getAttribute("position");
-    terrainObjectPositionCount = terrainObjectPositionAttribute.count;
-    terrainObjectPositionItemSize = terrainObjectPositionAttribute.itemSize;
-
-    //
-    const terrainObjectNormalAttribute = terrainObject.geometry.getAttribute("normal");
-    const terrainObjectNormalCount = terrainObjectNormalAttribute.count;
-    const terrainObjectNormalItemSize = terrainObjectNormalAttribute.itemSize;
-
-    // this will generate both vertex and triangle data
-    generateTriangleData(terrainObject, terrainObjectPositionAttribute, terrainObjectPositionCount, terrainObjectPositionItemSize, terrainObjectNormalAttribute, terrainObjectNormalCount, terrainObjectNormalItemSize);
-
-    //
-    printMeshInfo();
-    
-    //
-    //handleMouseRightClick(null);
-}
-
-function printMeshInfo()
-{
-    //
-    const indexAttribute = terrainObject.geometry.getIndex();
-    if(indexAttribute == null || indexAttribute == undefined)
-    {
-        terrainObjectIndexArrayLength = 0;
-        terrainObjectIndexCount = 0;
-        terrainObjectIndexItemSize = 1;
-    }
-    else
-    {
-        terrainObjectIndexArrayLength = indexAttribute.array.length;
-        terrainObjectIndexCount = indexAttribute.count;
-        terrainObjectIndexItemSize = indexAttribute.itemSize;
-    }
-
-    //
-    const terrainObjectPositionAttribute = terrainObject.geometry.getAttribute("position");
-    terrainObjectPositionArrayLength = terrainObjectPositionAttribute.array.length;
-    terrainObjectPositionCount = terrainObjectPositionAttribute.count;
-    terrainObjectPositionItemSize = terrainObjectPositionAttribute.itemSize;
-
-    //
-    const terrainObjectNormalAttribute = terrainObject.geometry.getAttribute("normal");
-    const terrainObjectNormalArrayLength = terrainObjectNormalAttribute.array.length;
-    const terrainObjectNormalCount = terrainObjectNormalAttribute.count;
-    const terrainObjectNormalItemSize = terrainObjectNormalAttribute.itemSize;
-
-    //
-    terrainObjectFacesCount = terrainObjectPositionCount / terrainObjectPositionItemSize;
-
-    //
-    console.log("");
-    console.log("[PRINT MESH]");
-
-    //
-    console.log("");
-    console.log("[ "+ terrainObjectIndexArrayLength +" ] terrainObjectIndexArrayLength");
-    console.log("[ "+ terrainObjectIndexCount +" ] terrainObjectIndexCount");
-    console.log("[ "+ terrainObjectIndexItemSize +" ] terrainObjectIndexItemSize");
-    console.log("[ "+ terrainObjectIndexCount / terrainObjectIndexItemSize +" ] terrainObjectIndexCount / terrainObjectIndexItemSize");
-
-    //
-    console.log("");
-    console.log("[ "+ terrainObjectPositionArrayLength +" ] terrainObjectPositionArrayLength");
-    console.log("[ "+ terrainObjectPositionCount +" ] terrainObjectPositionCount");
-    console.log("[ "+ terrainObjectPositionItemSize +" ] terrainObjectPositionItemSize");
-    console.log("[ "+ terrainObjectPositionCount / terrainObjectPositionItemSize +" ] terrainObjectPositionCount / terrainObjectPositionItemSize");
-
-    //
-    console.log("[ "+ terrainObjectFacesCount +" ] terrainObjectFacesCount");
-
-    //
-    if(terrainObjectIndexCount > 0)
-    {
-        for(var i = 0; i < terrainObjectIndexCount; i++)
-        {
-            console.log(indexAttribute.array[i]);
-        }
-    }
-    else {
-        console.log("terrainObjectIndexCount == 0");
-    }
-
-    // positions
-    if(terrainObjectPositionCount > 0)
-    {
-        for(var i = 0; i < terrainObjectPositionCount; i += terrainObjectPositionItemSize)
-        {
-            console.log(terrainObjectTrianglePositions[i / 3]);
-        }
-    }
-    else {
-        console.log("terrainObjectPositionCount == 0");
-    }
-
-    // normals
-    if(terrainObjectNormalCount > 0)
-    {
-        for(var i = 0; i < terrainObjectNormalCount; i += terrainObjectNormalItemSize)
-        {
-            console.log(terrainObjectTriangleNormals[i / 3]);
-        }
-    }
-    else {
-        console.log("terrainObjectNormalCount == 0");
-    }
-
-    //.index (which vertex belongs to which triangle)
-    //.position
-    //.normal
-    //.uv
-}
-
-function generateVertexData(terrainObject, terrainObjectPositionAttribute, terrainObjectPositionCount, terrainObjectPositionItemSize, terrainObjectNormalAttribute, terrainObjectNormalCount, terrainObjectNormalItemSize)
-{
-    // early return: count is different
-    if(terrainObjectPositionCount != terrainObjectNormalCount){return;}
-    if(terrainObjectPositionItemSize != terrainObjectNormalItemSize){return;}
-
-    //
-    for(var i = 0; i < terrainObjectPositionCount; i += terrainObjectPositionItemSize)
-    {  
-        // position
-        const positionVertexData = HelperMesh.getPositionVertexData(terrainObject, terrainObjectPositionAttribute, i, terrainObjectPositionItemSize);
-        addPositionVertexDataToList(positionVertexData);
-
-        // normal
-        const normalVertexData = HelperMesh.getNormalVertexData(terrainObject, terrainObjectNormalAttribute, i, terrainObjectNormalItemSize);
-        addNormalVertexDataToList(positionVertexData, normalVertexData);
-    }
 }
 
 function generateTriangleData(terrainObject, terrainObjectPositionAttribute, terrainObjectPositionCount, terrainObjectPositionItemSize, terrainObjectNormalAttribute, terrainObjectNormalCount, terrainObjectNormalItemSize)
@@ -790,7 +653,6 @@ function addPositionTriangleDataToList(positionTriangleData)
     );
 }
 
-var arrayArrowHelpers = [];
 function generateArrowInTriangleCenter(index, itemSize)
 {
     const actualIndex = index / itemSize;
@@ -801,28 +663,6 @@ function generateArrowInTriangleCenter(index, itemSize)
     const arrowHelper = new THREE.ArrowHelper(terrainObjectTriangleNormals[actualIndex], terrainObjectTrianglePositions[actualIndex], length, hex);
     scene.add(arrowHelper);
     arrayArrowHelpers.push(arrowHelper);
-}
-
-function generateSphereInTriangleCenter(terrainObjectTrianglePosition)
-{
-    const objGeo = new THREE.SphereGeometry(1.0, 2, 2);
-    const objMat = new THREE.MeshStandardMaterial({ 
-        wireframe: true,
-        //color: terrainColor,
-        //vertexColors: THREE.FaceColors,
-        vertexColors: true,
-        flatShading: true,
-        roughness: 1.0,
-        metalness: 0.0,
-    });
-
-    const obj = new THREE.Mesh(objGeo, objMat);
-
-    obj.position.x = terrainObjectTrianglePosition.x;
-    obj.position.y = terrainObjectTrianglePosition.y;
-    obj.position.z = terrainObjectTrianglePosition.z;
-
-    scene.add(obj);
 }
 
 function addNormalTriangleDataToList(positionTriangleData, normalTriangleData)
@@ -852,17 +692,6 @@ function addNormalTriangleDataToList(positionTriangleData, normalTriangleData)
 
     // add to list
     terrainObjectTriangleNormals.push(faceNormal);
-    //terrainObjectTriangleNormals.push(new THREE.Vector3(normalTriangleData[0].x, normalTriangleData[0].y, normalTriangleData[0].z));
-}
-
-function getVertexIndexFromIndexArray(object, index)
-{
-    //
-    const indexAttribute = object.geometry.getIndex();
-
-    //
-    if(indexAttribute == null || indexAttribute == undefined){return -1;}
-    return indexAttribute.array[index];
 }
 
 function generateVertexColors(geometry)
@@ -912,13 +741,6 @@ function update()
         // so we can update these ahead of time
         updateCameraGravityPerpendiculars();
 
-        // move in direction
-        // transfer this case to its own function if they should be kept
-        if(moveInDirection)
-        {
-            cameraPivot.position.addScaledVector(terrainObjectTriangleNormals[indexTriangle], 0.1);
-        }
-
         // attempt to unskew camera
         // we don't know where to stop...
         // ...is the problem
@@ -931,23 +753,9 @@ function update()
             camera.rotateZ(-0.01);
         }
 
-        // update current plane
-        if(keySpace)
-        {
-            console.log(clock.getElapsedTime().toFixed(1));
-            if(clock.getElapsedTime().toFixed(1) % 3 == 0)
-            {
-                console.log("mouse right click!");
-                handleMouseRightClick(null);
-            }
-        }
-
+        //
         checkControlsMovementMK();
     }
-
-    checkCollisionPlayerToTerrain();
-
-    updatePlayerGravity();
 
     // text log should be last of the update functions
     updateTextLog();
@@ -976,12 +784,10 @@ function handlePointerLockChange(e)
     if (getIsPointerLocked())
     {
         console.log("The pointer lock status is now locked");
-        // Do something useful in response
     }
     else
     {
         console.log("The pointer lock status is now unlocked");
-        // Do something useful in response
     }
 }
 
@@ -1009,13 +815,17 @@ function getIsPointerLocked()
     return !getIsPointerUnlocked();
 }
 
-async function handleMouseChange(e)
-{
-    //console.log("mouse move");
-}
-
 async function handleMouseMove(e)
 {
+    //
+    if(e == null){console.error("e == null");return;}
+    if(indexTriangle < 0 || terrainObjectTriangleNormals == null || terrainObjectTriangleNormals.length < 1 || terrainObjectTriangleNormals[indexTriangle] == null){console.error("no triangl");return;}
+
+    //
+    mouseX = e.movementX;
+    mouseY = e.movementY;
+    
+
     // should these things be moved to update() ?
     // so that we can do everything in a predictable order?
     // just set boolean values here
@@ -1033,27 +843,13 @@ async function handleMouseMove(e)
     // we should always consider axes
     // as things to rotate around
     // in this case, the new up direction
-    cameraPivot.rotateOnWorldAxis(terrainObjectTriangleNormals[indexTriangle], e.movementX / -1000.0);
+    const rotationY = mouseX * -0.001;
+    cameraPivot.rotateOnWorldAxis(terrainObjectTriangleNormals[indexTriangle], rotationY);
+
 
     // for movementY, we can just consider rotateX, the local variant
-    camera.rotateX(e.movementY / -1000.0);
-}
-
-async function handleMouseLock(e)
-{
-    console.log("mouse lock");
-    setTimeout((() => {
-        //console.log("["+ (controlsPointerLock.isLocked === true) +"] controlsPointerLock.isLocked === true");
-        checkHasControls();
-    }), 100);
-}
-async function handleMouseUnlock(e)
-{
-    console.log("mouse unlock");
-    setTimeout((() => {
-        //console.log("["+ (controlsPointerLock.isLocked === true) +"] controlsPointerLock.isLocked === true");
-        checkHasControls();
-    }), 100);
+    const rotationX = mouseY * -0.001;
+    camera.rotateX(rotationX);
 }
 
 function checkHasControls()
@@ -1144,43 +940,15 @@ async function handleKeyDown(e)
             keyArrowRight = true;
             break;
 
-        case 'KeyL':
-            camera.lookAt(terrainObjectTrianglePositions[indexTriangle]);
-            break;
-
-        case 'KeyC':
-            attemptToLookAtTriangleCenter();
-            break;
-
-        case 'KeyZ':
-            attemptToRotateToMatchClosest2Vertices();
-            break;
-
-        case 'KeyX':
+        case 'Digit1':
             attemptToMoveToTriangleCenter();
             break;
 
-        case 'KeyP':
-            console.log("");
-            console.log("camera.position");
-            console.dir(camera.position);
-            console.log("cameraPivot.position");
-            console.dir(cameraPivot.position);
-            console.log("camera.rotation");
-            console.dir(camera.rotation);
-            console.log("cameraPivot.rotation");
-            console.dir(cameraPivot.rotation);
+        case 'Digit2':
+            attemptToLookAtTriangleCenter();
             break;
 
         case 'Space':
-            keySpace = true;
-            break;
-
-        case 'Backspace':
-            moveInDirection = true;
-            break;
-
-        case 'ShiftLeft':
             updateClosestGravity();
             break;
 
@@ -1192,6 +960,8 @@ async function handleKeyDown(e)
 
 async function handleMouseDown(e)
 {
+    console.log("() handleMouseDown");
+
     //
     if(getIsPointerUnlocked()){handleLockPointer();return;}
     
@@ -1201,58 +971,23 @@ async function handleMouseDown(e)
         case 1:
             await handleMouseLeftClick(e);
             break;
-        case 3:
-            await handleMouseRightClick(e);
-            break;
     }
 }
 
-async function handleCanvasMouseDown(e)
-{
-    console.log("mouse down: " + e.which);
-    await handleMouseDown(e);
-}
-
-var indexTriangle = -1;
-var moveInDirection = false;
-async function handleMouseRightClick(e)
-{
-    //
-    indexTriangle++;
-    if(indexTriangle >= 20)
-    {
-        indexTriangle = 0;
-    }
-
-    //
-    console.log("");
-    console.log("["+ indexTriangle +"] indexTriangle");
-
-    // move to centerpoint
-    cameraPivot.position.x = terrainObjectTrianglePositions[indexTriangle].x;
-    cameraPivot.position.y = terrainObjectTrianglePositions[indexTriangle].y;
-    cameraPivot.position.z = terrainObjectTrianglePositions[indexTriangle].z;
-
-    // move outwards slightly
-    cameraPivot.position.addScaledVector(terrainObjectTriangleNormals[indexTriangle], 2.0);
-
-    // re-align camera to gravity
-    // we only have jank solutions so far
-    reAlignCameraToGravity();
-}
 
 async function handleMouseLeftClick(e)
 {
-    //
-    moveInDirection = false;
+    console.log("() handleMouseLeftClick");
 
     //
-    //await document.requestPointerLock();
     await handleLockPointer();
 }
 
 function updateClosestGravity()
 {
+    console.log("() updateClosestGravity");
+
+    //
     var closestTriangleIndex = -1;
     var closestTriangleDistance = 9999;
     const len = terrainObjectTrianglePositions.length;
@@ -1278,55 +1013,14 @@ function updateClosestGravity()
 
     // re-align camera
     // this is the hardest bit
-    // which we have solved with only jank so far
+    // which we only have jank "solutions" to so far
     reAlignCameraToGravity();
-}
-
-function printAngleDifferences()
-{
-    const vec3Up = new THREE.Vector3(0,1,0);
-
-    // we will attempt to use .rotateZ on the camera (not cameraPivot)
-    // to unskew any skew
-    console.log("[" + camera.rotation.z.toFixed(2) + " ("+ ((Math.PI + camera.rotation.z) % Math.PI).toFixed(2) +")" + "] camera.rotation.z");
-    
-    // let's find some angle differences
-    // and see if one is close to what we want
-
-    // do we first need to update camera direction?
-    // let's try with and without
-
-    const angleDifferenceAA = cameraDirection.dot(terrainObjectTriangleNormals[indexTriangle]);
-    const angleDifferenceAB = cameraDirection.dot(directionCameraGravityForward);
-    const angleDifferenceAC = cameraDirection.dot(directionCameraGravityRight);
-
-    const angleDifferenceBA = vec3Up.dot(cameraDirection);
-    const angleDifferenceBB = vec3Up.dot(terrainObjectTriangleNormals[indexTriangle]);
-    const angleDifferenceBC = vec3Up.dot(directionCameraGravityForward);
-    const angleDifferenceBD = vec3Up.dot(directionCameraGravityRight);
-
-    console.log("");
-
-    console.log("["+ angleDifferenceAA.toFixed(2) + " ("+ ((Math.PI - angleDifferenceAA) % Math.PI).toFixed(2) +")" + "] angleDifference AA");
-    console.log("["+ angleDifferenceAB.toFixed(2) + " ("+ ((Math.PI - angleDifferenceAB) % Math.PI).toFixed(2) +")" + "] angleDifference AB");
-    console.log("["+ angleDifferenceAC.toFixed(2) + " ("+ ((Math.PI - angleDifferenceAC) % Math.PI).toFixed(2) +")" + "] angleDifference AC");
-
-    console.log("");
-
-    console.log("["+ angleDifferenceBA.toFixed(2) + " ("+ ((Math.PI - angleDifferenceBA) % Math.PI).toFixed(2) +")" + "] angleDifference BA");
-    console.log("["+ angleDifferenceBB.toFixed(2) + " ("+ ((Math.PI - angleDifferenceBB) % Math.PI).toFixed(2) +")" + "] angleDifference BB");
-    console.log("["+ angleDifferenceBC.toFixed(2) + " ("+ ((Math.PI - angleDifferenceBC) % Math.PI).toFixed(2) +")" + "] angleDifference BC");
-    console.log("["+ angleDifferenceBD.toFixed(2) + " ("+ ((Math.PI - angleDifferenceBD) % Math.PI).toFixed(2) +")" + "] angleDifference BD");
-
-    console.log("");
-
-    console.log("[" + cameraDirection.x.toFixed(2) + ", " + cameraDirection.y.toFixed(2) + ", " + cameraDirection.z.toFixed(2) + "] cameraDirection");
-    console.log("[" + terrainObjectTriangleNormals[indexTriangle].x.toFixed(2) + ", " + terrainObjectTriangleNormals[indexTriangle].y.toFixed(2) + ", " + terrainObjectTriangleNormals[indexTriangle].z.toFixed(2) + "] terrainObjectTriangleNormals[indexTriangle]");
-    console.log("[" + directionCameraGravityForward.x.toFixed(2) + ", " + directionCameraGravityForward.y.toFixed(2) + ", " + directionCameraGravityForward.z.toFixed(2) + "] directionCameraGravityForward");
 }
 
 function attemptToMoveToTriangleCenter()
 {
+    console.log("() attemptToMoveToTriangleCenter");
+
     // move to center
     cameraPivot.position.x = terrainObjectTrianglePositions[indexTriangle].x;
     cameraPivot.position.y = terrainObjectTrianglePositions[indexTriangle].y;
@@ -1338,12 +1032,10 @@ function attemptToMoveToTriangleCenter()
 
 function attemptToLookAtTriangleCenter()
 {
-    //
-    camera.lookAt(terrainObjectTrianglePositions[indexTriangle]);
-    //camera.rotateZ(Math.PI);
+    console.log("() attemptToLookAtTriangleCenter");
 
     //
-    //camera.rotation.copy(directionCameraGravityForwardArrowHelper.rotation);
+    camera.lookAt(terrainObjectTrianglePositions[indexTriangle]);
 }
 
 function attemptToRotateToMatchClosest2Vertices()
@@ -1377,45 +1069,6 @@ function attemptToRotateToMatchClosest2Vertices()
     cameraPivot.position.z = (arrayVerticesByDistance[0].z + arrayVerticesByDistance[1].z) / 2;
 
     cameraPivot.position.addScaledVector(terrainObjectTriangleNormals[indexTriangle], 1.0);
-
-    return;
-
-    var closestVertexIndexA = -1;
-    var closestVertexDistanceA = 9999;
-
-    var closestVertexIndexB = -1;
-    var closestVertexDistanceB = 9999;
-
-    // we copy our array of vertices
-    var arrayVerticesByDistance = terrainObjectVertexPositions.slice();
-    
-    // we sort by distance to camera pivot
-    arrayVerticesByDistance.sort((itemA, itemB) =>
-    {
-        return compareFnVertexDistanceToCameraPivot(itemA, itemB);
-    });
-
-    // now, the first two items will be our two closest vertices
-    
-    // when our camera is rotated so that these two are at the same height...
-    // ...then we are no longer misaligned?
-
-    // and how on earth do we do this, lol
-
-    console.log("");
-    console.log("closest vertex A:");
-    console.log(arrayVerticesByDistance[0]);
-    console.log("closest vertex B:");
-    console.log(arrayVerticesByDistance[5]);
-
-    // just for testing
-    // let's place ourselves inbetween them
-
-    cameraPivot.position.x = (arrayVerticesByDistance[0].x + arrayVerticesByDistance[5].x) / 2;
-    cameraPivot.position.y = (arrayVerticesByDistance[0].y + arrayVerticesByDistance[5].y) / 2;
-    cameraPivot.position.z = (arrayVerticesByDistance[0].z + arrayVerticesByDistance[5].z) / 2;
-
-    cameraPivot.position.addScaledVector(terrainObjectTriangleNormals[indexTriangle], 1.0);
 }
 
 function compareFnVertexDistanceToCameraPivot(itemA, itemB)
@@ -1447,86 +1100,11 @@ function compareFnVertexDistanceToCameraPivot(itemA, itemB)
 
 function reAlignCameraToGravity()
 {
-    //printAngleDifferences();
-    
-    // jank solution
-
-    //THREE.Object3D.DEFAULT_UP = terrainObjectTriangleNormals[indexTriangle];
-    //camera.getWorldDirection(cameraDirection);
-
-    console.log("");
-    console.log("re-align!")
-    console.log("");
-
-    camera.DEFAULT_UP = terrainObjectTriangleNormals[indexTriangle];
-    cameraPivot.DEFAULT_UP = terrainObjectTriangleNormals[indexTriangle];
-    THREE.Object3D.DEFAULT_UP = terrainObjectTriangleNormals[indexTriangle];
-
-    return;
-
-    // move to the point
-    // .lookAt
-    // .rotateX to get up again
-    // move back to previous point
-
-    const previousX = cameraPivot.position.x;
-    const previousY = cameraPivot.position.y;
-    const previousZ = cameraPivot.position.z;
-
-    const previousRotationX = camera.rotation.x;
-    console.log("[" + previousRotationX + "] previousRotationX");
-    console.log("[" + (Math.PI / 4) + "] Math.PI / 4");
-    //const previousRotationY = camera.rotation.y;
-
-    cameraPivot.position.x = terrainObjectTrianglePositions[indexTriangle].x;
-    cameraPivot.position.y = terrainObjectTrianglePositions[indexTriangle].y;
-    cameraPivot.position.z = terrainObjectTrianglePositions[indexTriangle].z;
-
-    cameraPivot.position.addScaledVector(terrainObjectTriangleNormals[indexTriangle], 1.0);
-
-    camera.lookAt(terrainObjectTrianglePositions[indexTriangle]);
-
-    //camera.rotateX(Math.PI / 2);
-    camera.rotateX(previousRotationX);
-
-    cameraPivot.position.x = previousX;
-    cameraPivot.position.y = previousY;
-    cameraPivot.position.z = previousZ;
-
-    //cameraPivot.rotation.x = previousRotationX;
-
-    //cameraPivot.rotateOnWorldAxis(terrainObjectTriangleNormals[indexTriangle], -Math.PI * 2);
-
-
-    //cameraPivot.rotation.y += Math.PI / 2;
-    //cameraPivot.rotation.y = previousRotationY;
-
-    return;
-
-    // get angle difference
-    // between our current camera direction
-    // and gravity forward direction (perpendicular)
-    //var angleDifference = cameraDirection.dot(directionCameraGravityForward);
-    //console.log(angleDifference);
-
-    // first look at the center point
-    // this perfectly aligns our skew issue... for some reason
-
-    // new discovery!
-    // this only fixes the skew when the camera is positioned directly above the point
-    // so this will not work, oh at all
-    //camera.lookAt(terrainObjectTrianglePositions[indexTriangle]);
-
-    // then we rotate the camera up a bit
-    //camera.rotateX(Math.PI / 2);
-
-    // now, we rotate up again, by the same difference as before
-    //camera.rotateX(-angleDifference);
+    console.log("() reAlignCameraToGravity");
 }
 
 // we find the camera gravity perpendiculars before we handle movement
 // rotation -> update camera gravity perpendiculars -> movement
-// i think this order is the most reasonable
 function updateCameraGravityPerpendiculars()
 {
     // update arrow helper positions
@@ -1590,123 +1168,7 @@ function checkControlsMovementMK()
     cameraPivot.position.x += directionCameraGravityRight.x * 0.1 * horizontalPolarity;
     cameraPivot.position.y += directionCameraGravityRight.y * 0.1 * horizontalPolarity;
     cameraPivot.position.z += directionCameraGravityRight.z * 0.1 * horizontalPolarity;
-
-    // get forward axis first
-    // we use input to determine speed
-    //cameraPivot.translateOnWorldAxis(directionCameraGravityForward, 0.1);
-    
-    // now we can use the right-left axis
-    //cameraPivot.translateOnWorldAxis(directionCameraGravityRight, 0.1);
 }
-
-function getProjectedDistanceToCenter(objectPosition)
-{
-    //
-    const projectedPositionA = new THREE.Vector3();
-    projectedPositionA.copy(getProjectedPosition(objectPosition));
-
-    //
-    resultVec3.x = window.innerWidth / 2;
-    resultVec3.y = window.innerHeight / 2;
-    resultVec3.z = 0;
-
-    //
-    const distanceToCenterOfScreenA = projectedPositionA.distanceTo(resultVec3);
-
-    //
-    return distanceToCenterOfScreenA;
-}
-
-function getProjectedPosition(objectPosition)
-{
-    //
-    resultVec3.copy(objectPosition);
-    resultVec3.project(camera);
-
-    // change range to the size of the canvas
-    resultVec3.x = (resultVec3.x + 1) * window.innerWidth / 2;
-    resultVec3.y = -(resultVec3.y - 1) * window.innerHeight / 2;
-    resultVec3.z = 0;
-
-    //
-    return resultVec3;
-}
-
-function generateFrustum()
-{
-    // standard, normal update
-    // will set the frustum to exactly the camera's
-
-    // perhaps in some world one could modify these
-    // so that it is smaller
-    // but I don't seem to be able to
-    // so I'll have it remain at normal for now
-    cameraFrustum = new THREE.Frustum().setFromProjectionMatrix(new THREE.Matrix4().multiplyMatrices(camera.projectionMatrix, camera.matrixWorldInverse));
-}
-
-var accelZ = 0.13;
-function checkControlsHUD()
-{
-    // get width and height strings
-    // then remove the "px" at the end
-    var widthString = window.innerWidth.toString();
-    widthString.slice(0, widthString.length - 2);
-    var heightString = window.innerHeight.toString();
-    heightString.slice(0, widthString.length - 2);
-
-    // interpret as floats, so that we can get the center by dividing by 2
-    const width = parseFloat(widthString);
-    const height = parseFloat(heightString);
-
-    //
-    accelZ = webHIDDeviceInputDictionary["accelZ"];
-    // we need to shift accelZ
-    // it goes from -0.13 to 0.13
-    // which would normally be fine
-    // but it starts at 0.13 instead of 0.00
-    // so we need to progress it to 0.00 without changing the scale
-    // but % does not work on negative numbers
-    // so we need to first shift the scale to where 0 is the minimum, first
-    accelZ = accelZ + 0.26;
-    accelZ = accelZ % 0.26;
-    accelZ = accelZ - 0.13;
-    accelZ = accelZ * -1;
-    accelZ = Math.abs(accelZ);
-
-    //
-    const verticalOffsetAccel = HelperWebHID.rescale(webHIDDeviceInputDictionary["accelY"],-1,1,height / -2,height / 2);
-    var accelXZ = (webHIDDeviceInputDictionary["accelX"] + accelZ) / 2;
-    const horizontalOffsetAccel = HelperWebHID.rescale(accelXZ,-1,1,width / -2,width / 2);
-
-    //
-    const verticalOffsetGyro = HelperWebHID.rescale(webHIDDeviceInputDictionary["gyroX"],-1,1,height / -2,height / 2);
-    var gyroYZ = (webHIDDeviceInputDictionary["gyroY"] + webHIDDeviceInputDictionary["gyroZ"]) / 2;
-    const horizontalOffsetGyro = HelperWebHID.rescale(gyroYZ,-1,1,width / -2,width / 2);
-
-    //
-    const isJoyConL = HelperWebHID.isJoyConL(webHIDDevice.productId);
-    const reverseMultiplier = (isJoyConL ? 1 : -1);
-
-    //
-    const xBase = (width / 2) - 15 + 2;
-    const yBase = (height / 2) - 15 + 2;
-
-    //
-    hudGyro.style.right = (xBase + horizontalOffsetGyro * reverseMultiplier) + "px";
-    hudGyro.style.bottom = (yBase - verticalOffsetGyro * reverseMultiplier) + "px";
-
-    //
-    hudAccel.style.right = (xBase + horizontalOffsetAccel * reverseMultiplier) + "px";
-    hudAccel.style.bottom = (yBase - verticalOffsetAccel * reverseMultiplier) + "px";
-}
-
-function updatePlayerGravity()
-{
-    // early return: has no gamepad
-    if(!hasControls){return;}
-}
-
-function checkCollisionPlayerToTerrain(){}
 
 function updateTextLog()
 {
@@ -1717,57 +1179,40 @@ function updateTextLog()
     throttleTextLog = clock.getElapsedTime();
 
     //
-    hudTextStatus.textContent = "";
+    var resultString = "";
 
     //
-    const directionDefaultUp = new THREE.Vector3(0,0,1);
+    resultString += "camera.rotation\n";
+    resultString += "\t" + camera.rotation.x.toFixed(2) + "\n";
+    resultString += "\t" + camera.rotation.y.toFixed(2) + "\n";
+    resultString += "\t" + camera.rotation.z.toFixed(2) + "\n";
 
     //
-    var angleDifferenceDefaultUpAndNormal = HelperCameraRotation.getAngleDifference(directionDefaultUp, terrainObjectTriangleNormals[indexTriangle]);
-    var angleDifferenceDefaultUpAndCameraForward = HelperCameraRotation.getAngleDifference(directionDefaultUp, cameraDirection);
-    var angleDifferenceDefaultUpAndArrowForward = HelperCameraRotation.getAngleDifference(directionDefaultUp, directionCameraGravityForward);
-    var angleDifferenceDefaultUpAndArrowRight = HelperCameraRotation.getAngleDifference(directionDefaultUp, directionCameraGravityRight);
+    resultString += "\n";
+    resultString += "cameraPivot.rotation\n";
+    resultString += "\t" + cameraPivot.rotation.x.toFixed(2) + "\n";
+    resultString += "\t" + cameraPivot.rotation.y.toFixed(2) + "\n";
+    resultString += "\t" + cameraPivot.rotation.z.toFixed(2) + "\n";
 
     //
-    var dotProductDefaultUpAndNormal = directionDefaultUp.dot(terrainObjectTriangleNormals[indexTriangle]);
-    var dotProductDefaultUpAndCameraForward = directionDefaultUp.dot(cameraDirection);
-    var dotProductDefaultUpAndArrowForward = directionDefaultUp.dot(directionCameraGravityForward);
-    var dotProductDefaultUpAndArrowRight = directionDefaultUp.dot(directionCameraGravityRight);
-
+    resultString += "\n";
+    resultString += "current triangle index\n";
+    resultString += "\t" + indexTriangle + "\n";
 
     //
-    hudTextStatus.textContent +=
-    "[" + camera.rotation.x.toFixed(2) + "] camera.rotation.x \n" +
-    "[" + camera.rotation.y.toFixed(2) + "] camera.rotation.y \n" +
-    "\n" +
-    "[" + camera.rotation.z.toFixed(2) + "] camera.rotation.z \n" +
-    "[" + ((camera.rotation.z + Math.PI) % Math.PI).toFixed(2) + "] ((above + Math.PI) % Math.PI) \n" +
-    "\n" +
-    "[" + arrayArrowHelpers[indexTriangle].rotation.z.toFixed(2) + "] arrayArrowHelpers[indexTriangle].rotation.z \n" +
-    "[" + directionCameraGravityRightArrowHelper.rotation.z.toFixed(2) + "] directionCameraGravityRightArrowHelper.rotation.z \n" +
+    resultString += "\n";
+    resultString += "current triangle's normal direction (gravity)\n";
+    resultString += "\t" + terrainObjectTriangleNormals[indexTriangle].x.toFixed(2) + "\n";
+    resultString += "\t" + terrainObjectTriangleNormals[indexTriangle].y.toFixed(2) + "\n";
+    resultString += "\t" + terrainObjectTriangleNormals[indexTriangle].z.toFixed(2) + "\n";
+    
+    //
+    resultString += "\n";
+    resultString += "mouse movement\n";
+    resultString += "\t" + mouseX + "\n";
+    resultString += "\t" + mouseY + "\n";
 
-
-
-    "\n" +
-    "[" + angleDifferenceDefaultUpAndNormal.toFixed(2) + "] angleDifferenceDefaultUpAndNormal \n" +
-    "[" + (Math.PI - angleDifferenceDefaultUpAndNormal).toFixed(2) + "] (Math.PI - above) \n" +
-    "[" + ((angleDifferenceDefaultUpAndNormal + 6 * Math.PI) % Math.PI).toFixed(2) + "] ((above + 6 * Math.PI) % Math.PI) \n" +
-    "\n" +
-    "[" + angleDifferenceDefaultUpAndCameraForward.toFixed(2) + "] angleDifferenceDefaultUpAndCameraForward \n" +
-    "[" + (Math.PI - angleDifferenceDefaultUpAndCameraForward).toFixed(2) + "] (Math.PI - above) \n" +
-    "[" + angleDifferenceDefaultUpAndArrowForward.toFixed(2) + "] angleDifferenceDefaultUpAndArrowForward \n" +
-    "[" + (Math.PI - angleDifferenceDefaultUpAndArrowForward).toFixed(2) + "] (Math.PI - above) \n" +
-    "[" + angleDifferenceDefaultUpAndArrowRight.toFixed(2) + "] angleDifferenceDefaultUpAndArrowRight \n" +
-    "[" + (Math.PI - angleDifferenceDefaultUpAndArrowRight).toFixed(2) + "] (Math.PI - above) \n" +
-
-
-
-    "\n" +
-    "[" + dotProductDefaultUpAndNormal.toFixed(2) + "] dotProductDefaultUpAndNormal \n" +
-    "[" + ((dotProductDefaultUpAndNormal + 6 * Math.PI) % Math.PI).toFixed(2) + "] ((above + 6 * Math.PI) % Math.PI) \n" +
-    "\n" +
-    "[" + dotProductDefaultUpAndCameraForward.toFixed(2) + "] dotProductDefaultUpAndCameraForward \n" +
-    "[" + dotProductDefaultUpAndArrowForward.toFixed(2) + "] dotProductDefaultUpAndArrowForward \n" +
-    "[" + dotProductDefaultUpAndArrowRight.toFixed(2) + "] dotProductDefaultUpAndArrowRight \n" +
-    "\n";
+    //
+    hudTextStatus.textContent = resultString;
+    hudTextStatusDouble.textContent = resultString;
 }
