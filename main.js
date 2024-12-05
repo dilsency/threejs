@@ -103,7 +103,7 @@ var hudTextStatusDouble;
 
 //
 var boolTextControls = false;
-const stringTextControls = ["[Enter]  to show/hide controls","[LeftClick]  the screen\nto start controlling\n\n[Escape]  to unlock\n\n[W][A][S][D] to move\nperpendicular to current gravity\n\n[Q][E]  to move down/up\nalong camera's current up direction\n\n(tilting doesn't affect the\ncamera's up direction for some reason)\n\n[Spacebar]  to update gravity direction\nto the closest triangle's normal direction\n\nWhen doing so,\nI want to unskew the camera\nto align with the current plane\nBut I don't know how to yet\n\n[LeftArrow][RightArrow]  to manually\ntilt camera with camera.rotateZ()\n\n[1]  to teleport to center of triangle\n[2]  to .lookAt() center point\n\n[1]→[2]  will correctly\nunskew the camera\nto align with the current plane\n\n[Backspace]  to reset"];
+const stringTextControls = ["[Spacebar]  to update gravity/up direction\nto the closest triangle's normal direction\n\n[Enter]  to show/hide all controls","[Spacebar]  to update gravity direction\nto the closest triangle's normal direction\n\nWhen doing so,\nI want to skew the camera\nto align with the current plane\nBut I don't know how to yet\n\n\n[Escape]  to unlock\n\n[W][A][S][D] to move\nperpendicular to current gravity\n\n[Q][E]  to move down/up\nalong camera's current up direction\n\n(tilting doesn't affect the\ncamera's up direction for some reason)\n\n[LeftArrow][RightArrow]  to manually\ntilt camera with camera.rotateZ()\n\n[Backspace]  to reset\n\n\n[1]  to teleport to center of triangle\n[2]  to .lookAt() center point\n\n[1]→[2]  will correctly\nunskew the camera\nto align with the current plane\nbut this feels like jank"];
 
 // controls
 var keyboard = {};
