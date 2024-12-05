@@ -27,6 +27,8 @@ var scene;
 var cameraPivot;
 var camera;
 var cameraDirection;
+// default up direction
+var directionDefaultUp = new THREE.Vector3(0,1,0);
 // directions perpendicular to the forward direction of the camera
 // may or may not be useful
 var cameraDirectionRight;
@@ -98,6 +100,10 @@ var hudTextControls;
 var hudTextControlsDouble;
 var hudTextStatus;
 var hudTextStatusDouble;
+
+//
+var boolTextControls = false;
+const stringTextControls = ["[Enter]  to show/hide controls","[LeftClick]  the screen\nto start controlling\n\n[Escape]  to unlock\n\n[W][A][S][D] to move\nperpendicular to current gravity\n\n[Q][E]  to move down/up\nalong camera's current up direction\n\n(tilting doesn't affect the\ncamera's up direction for some reason)\n\n[Spacebar]  to update gravity direction\nto the closest triangle's normal direction\n\nWhen doing so,\nI want to unskew the camera\nto align with the current plane\nBut I don't know how to yet\n\n[LeftArrow][RightArrow]  to manually\ntilt camera with camera.rotateZ()\n\n[1]  to teleport to center of triangle\n[2]  to .lookAt() center point\n\n[1]→[2]  will correctly\nunskew the camera\nto align with the current plane\n\n[Backspace]  to reset"];
 
 // controls
 var keyboard = {};
@@ -310,30 +316,6 @@ function init()
                 console.error(error);
             }
         );
-
-        return;
-
-        // Load a glTF resource
-        loaderGLTF.load
-        (
-            // resource URL
-            './models/Icosahedron.gltf',
-            // called when the resource is loaded
-            function (gltf)
-            {
-                return;
-                loadGLTF(gltf);
-            },
-            // called while loading is progressing
-            function (xhr) {
-                console.log((xhr.loaded / xhr.total * 100) + '% loaded');
-            },
-            // called when loading has errors
-            function (error) {
-                console.error('ERROR: loaderGLTF');
-                console.error(error);
-            }
-        );
     }
     function initGeometry()
     {
@@ -379,9 +361,8 @@ function init()
         document.body.appendChild(hudTextControlsDouble);
 
         //
-        const stringRes = "[LeftClick] the screen\nto start controlling\n\n[Escape] to unlock\n\n[W][A][S][D] to move\nperpendicular to current gravity\n\n[Spacebar] to update gravity direction\nto the closest triangle's normal direction\n\nWhen doing so,\nI want to unskew the camera\nto align with the current plane\nBut I don't know how to yet\n\n[LeftArrow][RightArrow] to manually\ntilt camera with camera.rotateZ()\n\n[1] to teleport to center of triangle\n[2] to .lookAt() center point\n\n[1]→[2] will correctly\nunskew the camera\nto align with the current plane";
-        hudTextControls.textContent = stringRes;
-        hudTextControlsDouble.textContent = stringRes;
+        hudTextControls.textContent = stringTextControls[0];
+        hudTextControlsDouble.textContent = stringTextControls[0];
 
         //
         hudTextStatus = document.createElement("p");
@@ -761,7 +742,9 @@ function update()
         {
             cameraPivot.position.addScaledVector(cameraDirectionRight, 0.1);
         }
-        else if(keyboard["KeyE"] == true)
+        
+        //
+        if(keyboard["KeyE"] == true)
         {
             cameraPivot.position.addScaledVector(cameraDirectionUp, -0.1);
         }
@@ -769,6 +752,13 @@ function update()
         {
             cameraPivot.position.addScaledVector(cameraDirectionUp, 0.1);
         }
+
+        //
+        if(keyboard["Backspace"])
+        {
+            resetCamera();
+        }
+
 
         // attempt to unskew camera
         // we don't know where to stop...
@@ -873,15 +863,18 @@ async function handleMouseMove(e)
     // now we need to check if we have rotated every frame
     // which we might be able to skip if we haven't rotated
 
-    // early return: is not locked
-    if(getIsPointerUnlocked()){return;}
-
     // for rotation
     // we should always consider axes
     // as things to rotate around
     // in this case, the new up direction
     const rotationY = mouseX * -0.001;
-    cameraPivot.rotateOnWorldAxis(terrainObjectTriangleNormals[indexTriangle], rotationY);
+    if(indexTriangle >= 0)
+    {
+        cameraPivot.rotateOnWorldAxis(terrainObjectTriangleNormals[indexTriangle], rotationY);
+    }
+    else {
+        cameraPivot.rotateOnWorldAxis(directionDefaultUp, rotationY);
+    }
 
 
     // for movementY, we can just consider rotateX, the local variant
@@ -901,20 +894,11 @@ function checkHasControls()
     return;
 }
 
-var keyForward = false;
-var keyBackward = false;
-var keyLeft = false;
-var keyRight = false;
-
-var keySpace = false;
-
 async function handleKeyUp(e)
 {
     keyboard[e.code] = false;
 }
 
-var keyArrowLeft = false;
-var keyArrowRight = false;
 async function handleKeyDown(e)
 {
     keyboard[e.code] = true;
@@ -931,6 +915,10 @@ async function handleKeyDown(e)
 
         case 'Space':
             updateClosestGravity();
+            break;
+
+        case 'Enter':
+            toggleTextControls();
             break;
     };
 }
@@ -996,6 +984,10 @@ function updateClosestGravity()
 
 function attemptToMoveToTriangleCenter()
 {
+    // early return: no triangle
+    if(indexTriangle < 0){return;}
+
+    //
     console.log("() attemptToMoveToTriangleCenter");
 
     // move to center
@@ -1009,6 +1001,10 @@ function attemptToMoveToTriangleCenter()
 
 function attemptToLookAtTriangleCenter()
 {
+    // early return: no triangle
+    if(indexTriangle < 0){return;}
+
+    //
     console.log("() attemptToLookAtTriangleCenter");
 
     //
@@ -1078,20 +1074,72 @@ function compareFnVertexDistanceToCameraPivot(itemA, itemB)
 function reAlignCameraToGravity()
 {
     console.log("() reAlignCameraToGravity");
+
+    // code here
+}
+
+function resetCamera()
+{
+    //
+    cameraPivot.position.x = 0.0;
+    cameraPivot.position.y = 20.0;
+    cameraPivot.position.z = 0.0;
+
+    //
+    camera.rotation.x = 0.0;
+    camera.rotation.y = 0.0;
+    camera.rotation.z = 0.0;
+
+    //
+    cameraPivot.rotation.x = 0.0;
+    cameraPivot.rotation.y = 0.0;
+    cameraPivot.rotation.z = 0.0;
+
+    //
+    indexTriangle = -1;
 }
 
 // we find the camera gravity perpendiculars before we handle movement
 // rotation -> update camera gravity perpendiculars -> movement
 function updateCameraGravityPerpendiculars()
 {
-    // update 
-    //cameraDirectionRight.copy(cameraDirection);
-    //cameraDirectionRight.applyAxisAngle(terrainObjectTriangleNormals[indexTriangle], -Math.PI / 2);
-    //cameraDirectionRight.normalize();
-    cameraDirectionRight.crossVectors(cameraDirection, terrainObjectTriangleNormals[indexTriangle]);
-    cameraDirectionRight.normalize();
+    // we handle things differently depending on if we have a triangle index or not
+    if(indexTriangle >= 0)
+    {
+        // cross product
+        // of the camera's current direction
+        // and the gravity
+        directionCameraGravityRight.crossVectors(cameraDirection, terrainObjectTriangleNormals[indexTriangle]);
+        directionCameraGravityRight.normalize();
+
+        // we can then use this vector, to get forward
+        // we use this order just to get the correct polarity
+        directionCameraGravityForward.crossVectors(terrainObjectTriangleNormals[indexTriangle], directionCameraGravityRight);
+        directionCameraGravityForward.normalize();
+
+        cameraDirectionRight.crossVectors(cameraDirection, terrainObjectTriangleNormals[indexTriangle]);
+        cameraDirectionRight.normalize();
+    }
+    else {
+        // if we do not have a triangle index
+        // we instead use default up
+
+        directionCameraGravityRight.crossVectors(cameraDirection, directionDefaultUp);
+        directionCameraGravityRight.normalize();
+
+        directionCameraGravityForward.crossVectors(directionDefaultUp, directionCameraGravityRight);
+        directionCameraGravityForward.normalize();
+
+        cameraDirectionRight.crossVectors(cameraDirection, directionDefaultUp);
+        cameraDirectionRight.normalize();
+    }
+
     cameraDirectionUp.crossVectors(cameraDirection, cameraDirectionRight);
     cameraDirectionUp.normalize();
+
+    // early return: no triangle
+    if(indexTriangle < 0){return;}
+
 
     // update arrow helper positions
     directionCameraGravityForwardArrowHelper.position.x = terrainObjectTrianglePositions[indexTriangle].x;
@@ -1105,20 +1153,6 @@ function updateCameraGravityPerpendiculars()
     // but let's move them outwards a little
     directionCameraGravityForwardArrowHelper.position.addScaledVector(terrainObjectTriangleNormals[indexTriangle], 0.5);
     directionCameraGravityRightArrowHelper.position.addScaledVector(terrainObjectTriangleNormals[indexTriangle], 0.5);
-
-    // now for the complications
-    // find the right directions
-
-    // let's first try with the cross product
-    // of the camera's current direction
-    // and the gravity
-    directionCameraGravityRight.crossVectors(cameraDirection, terrainObjectTriangleNormals[indexTriangle]);
-    directionCameraGravityRight.normalize();
-
-    // we can then use this vector, to get forward
-    // we use this order just to get the correct polarity
-    directionCameraGravityForward.crossVectors(terrainObjectTriangleNormals[indexTriangle], directionCameraGravityRight);
-    directionCameraGravityForward.normalize();
 
     // update
     directionCameraGravityRightArrowHelper.setDirection(directionCameraGravityRight);
@@ -1156,6 +1190,14 @@ function checkControlsMovementMK()
     cameraPivot.position.z += directionCameraGravityRight.z * 0.1 * horizontalPolarity;
 }
 
+function toggleTextControls()
+{
+    boolTextControls = !boolTextControls;
+
+    hudTextControls.textContent = stringTextControls[(boolTextControls ? 1 : 0)];
+    hudTextControlsDouble.textContent = stringTextControls[(boolTextControls ? 1 : 0)];
+}
+
 function updateTextLog()
 {
     // early return: throttling
@@ -1179,6 +1221,13 @@ function updateTextLog()
     resultString += "\t" + cameraPivot.rotation.x.toFixed(2) + "\n";
     resultString += "\t" + cameraPivot.rotation.y.toFixed(2) + "\n";
     resultString += "\t" + cameraPivot.rotation.z.toFixed(2) + "\n";
+    
+    //
+    resultString += "\n";
+    resultString += "camera's current up direction\n";
+    resultString += "\t" + cameraDirectionUp.x.toFixed(2) + "\n";
+    resultString += "\t" + cameraDirectionUp.y.toFixed(2) + "\n";
+    resultString += "\t" + cameraDirectionUp.z.toFixed(2) + "\n";
 
     //
     resultString += "\n";
@@ -1186,17 +1235,21 @@ function updateTextLog()
     resultString += "\t" + indexTriangle + "\n";
 
     //
+    if(indexTriangle >= 0){
     resultString += "\n";
     resultString += "current triangle's normal direction (gravity)\n";
     resultString += "\t" + terrainObjectTriangleNormals[indexTriangle].x.toFixed(2) + "\n";
     resultString += "\t" + terrainObjectTriangleNormals[indexTriangle].y.toFixed(2) + "\n";
     resultString += "\t" + terrainObjectTriangleNormals[indexTriangle].z.toFixed(2) + "\n";
-    
+    }
+
+    /*
     //
     resultString += "\n";
     resultString += "mouse movement\n";
     resultString += "\t" + mouseX + "\n";
     resultString += "\t" + mouseY + "\n";
+    */
 
     //
     hudTextStatus.textContent = resultString;
