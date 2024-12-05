@@ -27,6 +27,10 @@ var scene;
 var cameraPivot;
 var camera;
 var cameraDirection;
+// directions perpendicular to the forward direction of the camera
+// may or may not be useful
+var cameraDirectionRight;
+var cameraDirectionUp;
 
 // camera gravity perpendiculars
 // we move along these axes
@@ -96,6 +100,7 @@ var hudTextStatus;
 var hudTextStatusDouble;
 
 // controls
+var keyboard = {};
 var hasControls = false;
 
 //
@@ -134,6 +139,10 @@ function init()
         cameraPivot.add(camera);
         cameraDirection = new THREE.Vector3();
         camera.getWorldDirection(cameraDirection);
+
+        // camera forward perpendiculars
+        cameraDirectionRight = new THREE.Vector3(1,0,0);
+        cameraDirectionUp = new THREE.Vector3(0,1,0);
 
         // camera gravity perpendiculars
         // we move along these axes
@@ -370,7 +379,7 @@ function init()
         document.body.appendChild(hudTextControlsDouble);
 
         //
-        const stringRes = "[LeftClick] the screen\nto start controlling\n\n[W][A][S][D] to move\nperpendicular to current gravity\n\n[Spacebar] to update gravity direction\nto the closest triangle's normal direction\n\nWhen doing so,\nI want to unskew the camera\nto align with the current plane\nBut I don't know how to yet\n\n[LeftArrow][RightArrow] to\ntilt camera with camera.rotateZ()\n\n[1] to teleport to center of triangle\n[2] to .lookAt() center point\n\n[1]→[2] will correctly\nunskew the camera\nto align with the current plane";
+        const stringRes = "[LeftClick] the screen\nto start controlling\n\n[Escape] to unlock\n\n[W][A][S][D] to move\nperpendicular to current gravity\n\n[Spacebar] to update gravity direction\nto the closest triangle's normal direction\n\nWhen doing so,\nI want to unskew the camera\nto align with the current plane\nBut I don't know how to yet\n\n[LeftArrow][RightArrow] to manually\ntilt camera with camera.rotateZ()\n\n[1] to teleport to center of triangle\n[2] to .lookAt() center point\n\n[1]→[2] will correctly\nunskew the camera\nto align with the current plane";
         hudTextControls.textContent = stringRes;
         hudTextControlsDouble.textContent = stringRes;
 
@@ -386,6 +395,7 @@ function init()
         hudTextStatus.style.whiteSpace = "pre-wrap";
         hudTextStatus.style.fontFamily = "monospace";
         hudTextStatus.style.display = "flex";
+        hudTextStatus.style.userSelect = "none";
 
         hudTextStatus.style.webkitTextStroke = "3.0px black";
         hudTextStatus.style.textStroke = "3.0px black";
@@ -420,6 +430,7 @@ function init()
         hudReticle.style.width = "30px";
         hudReticle.style.height = "30px";
         hudReticle.style.transform = "rotate(45deg)";
+        hudReticle.style.display = "none";
         document.body.appendChild(hudReticle);
         //
         var hudReticleTop = document.createElement("div");
@@ -741,14 +752,32 @@ function update()
         // so we can update these ahead of time
         updateCameraGravityPerpendiculars();
 
+        //
+        if(keyboard["KeyI"] == true)
+        {
+            cameraPivot.position.addScaledVector(cameraDirection, 0.1);
+        }
+        else if(keyboard["KeyL"] == true)
+        {
+            cameraPivot.position.addScaledVector(cameraDirectionRight, 0.1);
+        }
+        else if(keyboard["KeyE"] == true)
+        {
+            cameraPivot.position.addScaledVector(cameraDirectionUp, -0.1);
+        }
+        else if(keyboard["KeyQ"] == true)
+        {
+            cameraPivot.position.addScaledVector(cameraDirectionUp, 0.1);
+        }
+
         // attempt to unskew camera
         // we don't know where to stop...
         // ...is the problem
-        if(keyArrowLeft)
+        if(keyboard["ArrowLeft"] == true)
         {
             camera.rotateZ(0.01);
         }
-        else if (keyArrowRight)
+        else if (keyboard["ArrowRight"] == true)
         {
             camera.rotateZ(-0.01);
         }
@@ -784,10 +813,19 @@ function handlePointerLockChange(e)
     if (getIsPointerLocked())
     {
         console.log("The pointer lock status is now locked");
+
+        // hide reticle
+        hudReticle.style.display = "block";
     }
     else
     {
         console.log("The pointer lock status is now unlocked");
+
+        // reset keyboard input
+        keyboard = {};
+
+        // hide reticle
+        hudReticle.style.display = "none";
     }
 }
 
@@ -817,9 +855,8 @@ function getIsPointerLocked()
 
 async function handleMouseMove(e)
 {
-    //
-    if(e == null){console.error("e == null");return;}
-    if(indexTriangle < 0 || terrainObjectTriangleNormals == null || terrainObjectTriangleNormals.length < 1 || terrainObjectTriangleNormals[indexTriangle] == null){console.error("no triangl");return;}
+    // early return: mouse need to be locked
+    if(getIsPointerUnlocked()){return;}
 
     //
     mouseX = e.movementX;
@@ -873,73 +910,17 @@ var keySpace = false;
 
 async function handleKeyUp(e)
 {
-    switch (e.code)
-    {
-        case 'ArrowUp':
-        case 'KeyW':
-            keyForward = false;
-            break;
-
-        case 'ArrowDown':
-        case 'KeyS':
-            keyBackward = false;
-            break;
-
-        case 'KeyA':
-            keyLeft = false;
-            break;
-
-        case 'KeyD':
-            keyRight = false;
-            break;
-
-        case 'Space':
-            keySpace = false;
-            break;
-
-        case 'ArrowLeft':
-            keyArrowLeft = false;
-            break;
-
-        case 'ArrowRight':
-            keyArrowRight = false;
-            break;
-    };
+    keyboard[e.code] = false;
 }
 
 var keyArrowLeft = false;
 var keyArrowRight = false;
 async function handleKeyDown(e)
 {
+    keyboard[e.code] = true;
 
     switch (e.code)
     {
-        case 'ArrowUp':
-        case 'KeyW':
-            keyForward = true;
-            break;
-
-        case 'ArrowDown':
-        case 'KeyS':
-            keyBackward = true;
-            break;
-
-        case 'KeyA':
-            keyLeft = true;
-            break;
-
-        case 'KeyD':
-            keyRight = true;
-            break;
-
-        case 'ArrowLeft':
-            keyArrowLeft = true;
-            break;
-
-        case 'ArrowRight':
-            keyArrowRight = true;
-            break;
-
         case 'Digit1':
             attemptToMoveToTriangleCenter();
             break;
@@ -950,10 +931,6 @@ async function handleKeyDown(e)
 
         case 'Space':
             updateClosestGravity();
-            break;
-
-        default:
-            console.log(e.code);
             break;
     };
 }
@@ -1107,6 +1084,15 @@ function reAlignCameraToGravity()
 // rotation -> update camera gravity perpendiculars -> movement
 function updateCameraGravityPerpendiculars()
 {
+    // update 
+    //cameraDirectionRight.copy(cameraDirection);
+    //cameraDirectionRight.applyAxisAngle(terrainObjectTriangleNormals[indexTriangle], -Math.PI / 2);
+    //cameraDirectionRight.normalize();
+    cameraDirectionRight.crossVectors(cameraDirection, terrainObjectTriangleNormals[indexTriangle]);
+    cameraDirectionRight.normalize();
+    cameraDirectionUp.crossVectors(cameraDirection, cameraDirectionRight);
+    cameraDirectionUp.normalize();
+
     // update arrow helper positions
     directionCameraGravityForwardArrowHelper.position.x = terrainObjectTrianglePositions[indexTriangle].x;
     directionCameraGravityForwardArrowHelper.position.y = terrainObjectTrianglePositions[indexTriangle].y;
@@ -1143,8 +1129,8 @@ function updateCameraGravityPerpendiculars()
 function checkControlsMovementMK()
 {
     // get input
-    const horizontalPolarity = (keyLeft ? -1 : (keyRight ? 1 : 0));
-    const verticalPolarity = (keyForward ? 1 : (keyBackward ? -1 : 0));
+    const horizontalPolarity = (keyboard["KeyA"] ? -1 : (keyboard["KeyD"] ? 1 : 0));
+    const verticalPolarity = (keyboard["KeyW"] ? 1 : (keyboard["KeyS"] ? -1 : 0));
 
     // early return: no input
     if(horizontalPolarity == 0 && verticalPolarity == 0){return;}
