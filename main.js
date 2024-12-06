@@ -1,16 +1,3 @@
-// to run
-// npx serve .
-
-// to upload on itch.io
-// zip the whole folder and upload that :)
-
-// to collapse all
-// ⌘ + k
-// ⌘ + 0
-
-// because of our importmap in index.html
-// we can just use the alias/names here
-// this will (hopefully) apply to both CDN and local files
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";
@@ -27,8 +14,6 @@ var scene;
 var cameraPivot;
 var camera;
 var cameraDirection;
-// default up direction
-var directionDefaultUp = new THREE.Vector3(0,1,0);
 // directions perpendicular to the forward direction of the camera
 // may or may not be useful
 var cameraDirectionRight;
@@ -52,8 +37,7 @@ var clock;
 var light1;
 var light2;
 
-// will be used to load gltf models
-var loaderGLTF;
+// will be used to load models
 var loaderOBJ;
 // will be used to load textures
 var loaderTexture;
@@ -103,7 +87,7 @@ var hudTextStatusDouble;
 
 //
 var boolTextControls = false;
-const stringTextControls = ["[Spacebar]  to update gravity/up direction\nto the closest triangle's normal direction\n\n[Enter]  to show/hide all controls","[Spacebar]  to update gravity direction\nto the closest triangle's normal direction\n\nWhen doing so,\nI want to skew the camera\nto align with the current plane\nBut I don't know how to yet\n\n\n[Escape]  to unlock\n\n[W][A][S][D] to move\nperpendicular to current gravity\n\n[Q][E]  to move down/up\nalong camera's current up direction\n\n(tilting doesn't affect the\ncamera's up direction for some reason)\n\n[LeftArrow][RightArrow]  to manually\ntilt camera with camera.rotateZ()\n\n[Backspace]  to reset\n\n\n[1]  to teleport to center of triangle\n[2]  to .lookAt() center point\n\n[1]→[2]  will correctly\nunskew the camera\nto align with the current plane\nbut this feels like jank"];
+const stringTextControls = ["[Spacebar]  to update gravity/up direction\nto the closest triangle's normal direction\nthough it will jarringly move the camera\n\n[Enter]  to show/hide all controls","[Spacebar]  to update gravity/up direction\nto the closest triangle's normal direction\nthough it will jarringly move the camera\n\n\n[Escape]  to unlock\n\n[W][A][S][D] to move\nperpendicular to current gravity\n\n[Q][E]  to move down/up\nalong camera's current up direction\n\n(tilting doesn't affect the\ncamera's up direction for some reason)\n\n[LeftArrow][RightArrow]  to manually\ntilt camera with camera.rotateZ()\n\n[Backspace]  to reset\n\n\n[1]  to teleport to center of triangle\n[2]  to .lookAt() center point\n\n[1]→[2]  will correctly\nunskew the camera\nto align with the current plane\nbut this feels like jank"];
 
 // controls
 var keyboard = {};
@@ -524,7 +508,6 @@ function init()
 
     //
     loaderOBJ = new OBJLoader();
-    loaderGLTF = new GLTFLoader();
     loaderTexture = new THREE.TextureLoader();
 
     //
@@ -873,7 +856,7 @@ async function handleMouseMove(e)
         cameraPivot.rotateOnWorldAxis(terrainObjectTriangleNormals[indexTriangle], rotationY);
     }
     else {
-        cameraPivot.rotateOnWorldAxis(directionDefaultUp, rotationY);
+        cameraPivot.rotateOnWorldAxis(scene.up, rotationY);
     }
 
 
@@ -919,6 +902,10 @@ async function handleKeyDown(e)
 
         case 'Enter':
             toggleTextControls();
+            break;
+
+        case 'M':
+            reAlignCameraToGravity();
             break;
     };
 }
@@ -1076,6 +1063,7 @@ function reAlignCameraToGravity()
     console.log("() reAlignCameraToGravity");
 
     // code here
+    cameraPivot.quaternion.setFromUnitVectors(scene.up, terrainObjectTriangleNormals[indexTriangle]);
 }
 
 function resetCamera()
@@ -1124,13 +1112,13 @@ function updateCameraGravityPerpendiculars()
         // if we do not have a triangle index
         // we instead use default up
 
-        directionCameraGravityRight.crossVectors(cameraDirection, directionDefaultUp);
+        directionCameraGravityRight.crossVectors(cameraDirection, scene.up);
         directionCameraGravityRight.normalize();
 
-        directionCameraGravityForward.crossVectors(directionDefaultUp, directionCameraGravityRight);
+        directionCameraGravityForward.crossVectors(scene.up, directionCameraGravityRight);
         directionCameraGravityForward.normalize();
 
-        cameraDirectionRight.crossVectors(cameraDirection, directionDefaultUp);
+        cameraDirectionRight.crossVectors(cameraDirection, scene.up);
         cameraDirectionRight.normalize();
     }
 
