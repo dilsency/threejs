@@ -15,7 +15,6 @@ var cameraPivot;
 var camera;
 var cameraDirection;
 // directions perpendicular to the forward direction of the camera
-// may or may not be useful
 var cameraDirectionRight;
 var cameraDirectionUp;
 
@@ -41,19 +40,13 @@ var light2;
 var loaderOBJ;
 // will be used to load textures
 var loaderTexture;
-// it's useful to have a fallback texture
+// may be useful to have a fallback texture
 var defaultTexture;
 
 // reference to terrain object once loaded
 var terrainObject;
-var terrainObjectIndexArrayLength = 0;
-var terrainObjectIndexCount = 0;
-var terrainObjectIndexItemSize = 1;
-var terrainObjectPositionArrayLength = 0;
 var terrainObjectPositionCount = 0;
 var terrainObjectPositionItemSize = 1;
-
-var terrainObjectFacesCount = 0;
 
 // vertex positions and normals, for convenience later
 var terrainObjectVertexPositions = [];
@@ -562,7 +555,7 @@ function loadOBJ(obj)
     // this will generate both vertex and triangle data
     generateTriangleData(terrainObject, terrainObjectPositionAttribute, terrainObjectPositionCount, terrainObjectPositionItemSize, terrainObjectNormalAttribute, terrainObjectNormalCount, terrainObjectNormalItemSize);
 
-    // test, idk if this works
+    //
     const helper = new VertexNormalsHelper( terrainObject, 1, 0xff0000 );
     scene.add(helper);
     
@@ -572,12 +565,15 @@ function loadOBJ(obj)
 
 function setDefaultValues()
 {
+    //
     indexTriangle = 0;
 
+    //
     cameraPivot.position.x = 4.65974616419644;
     cameraPivot.position.y = -12.73895089518661;
     cameraPivot.position.z = 14.340953607116495;
 
+    //
     camera.rotation.x = 2.301433157336285;
     camera.rotation.y = -0.21353103090011885;
     camera.rotation.z = -0.23222523479005994;
@@ -605,7 +601,6 @@ function generateTriangleData(terrainObject, terrainObjectPositionAttribute, ter
         addNormalTriangleDataToList(positionTriangleData, normalTriangleData);
 
         //
-        //generateSphereInTriangleCenter(terrainObjectTrianglePositions[i / terrainObjectPositionItemSize]);
         generateArrowInTriangleCenter(i, terrainObjectPositionItemSize);
     }
 }
@@ -694,12 +689,7 @@ function update()
     // must be first
     requestAnimationFrame(update);
 
-    // input dictionary is handled by eventlistener
-    // so we don't need to bother with it in here?
-
     // precalculate camera forward direction
-    // so that we don't need to call it in functions later on ahead
-    // unless we move it I guess?
     precalculateCameraDirection();
 
     if(!hasControls)
@@ -710,27 +700,26 @@ function update()
     else
     {
         // update gravity perpendiculars
-        // these are the axes we actually move on
-        // not the camera's directions, directly
-        // though we do use the camera to find the correct ones
-        // so we can update these ahead of time
+        // these are the axes we actually move on, not the camera's
         updateCameraGravityPerpendiculars();
 
-        //
+        // testing, move in camera's current forward direction
         if(keyboard["KeyI"] == true)
         {
             cameraPivot.position.addScaledVector(cameraDirection, 0.1);
         }
+        // testing, move in camera's current right direction
         else if(keyboard["KeyL"] == true)
         {
             cameraPivot.position.addScaledVector(cameraDirectionRight, 0.1);
         }
         
-        //
+        // testing, move in camera's current up direction
         if(keyboard["KeyE"] == true)
         {
             cameraPivot.position.addScaledVector(cameraDirectionUp, -0.1);
         }
+        // testing, move in camera's current up direction, down
         else if(keyboard["KeyQ"] == true)
         {
             cameraPivot.position.addScaledVector(cameraDirectionUp, 0.1);
@@ -743,9 +732,7 @@ function update()
         }
 
 
-        // attempt to unskew camera
-        // we don't know where to stop...
-        // ...is the problem
+        // attempt to unskew camera manually
         if(keyboard["ArrowLeft"] == true)
         {
             camera.rotateZ(0.01);
@@ -770,9 +757,7 @@ function precalculateCameraDirection()
 {
     // in order to move with the axes
     // we need to update the camera's world direction
-    
-    // we perhaps do not need to do this every frame
-    // but we need to do this before we move
+    // does this actually need to be done every frame?
     
     camera.getWorldDirection(cameraDirection);
 }
@@ -787,7 +772,7 @@ function handlePointerLockChange(e)
     {
         console.log("The pointer lock status is now locked");
 
-        // hide reticle
+        // show reticle
         hudReticle.style.display = "block";
     }
     else
@@ -807,7 +792,7 @@ async function handleLockPointer()
     // early return: is already locked
     if(getIsPointerLocked()){return;}
 
-    //
+    // to do: add timer to prevent subsequent requests, as they will fail within a certain time frame
     await renderer.domElement.requestPointerLock();
 
     //
@@ -836,15 +821,9 @@ async function handleMouseMove(e)
     mouseY = e.movementY;
     
 
+    // to be considered
     // should these things be moved to update() ?
     // so that we can do everything in a predictable order?
-    // just set boolean values here
-    // and then act accordingly in update() ?
-
-    // this is also useful because then we can use hasMouseMoved flags
-    // which isn't really feasible here
-    // now we need to check if we have rotated every frame
-    // which we might be able to skip if we haven't rotated
 
     // for rotation
     // we should always consider axes
@@ -959,13 +938,10 @@ function updateClosestGravity()
     if(i < 0){return;}
 
     // update gravity index
-    // the rest is handled in update every frame...
-    // ...which is, uhh, interesting
+    // the rest is handled in update()
     indexTriangle = closestTriangleIndex;
 
     // re-align camera
-    // this is the hardest bit
-    // which we only have jank "solutions" to so far
     reAlignCameraToGravity();
 }
 
@@ -998,76 +974,20 @@ function attemptToLookAtTriangleCenter()
     camera.lookAt(terrainObjectTrianglePositions[indexTriangle]);
 }
 
-function attemptToRotateToMatchClosest2Vertices()
-{
-    // we get the vertices of the currently assigned triangle
-    var arrayVerticesByDistance = [
-        terrainObjectVertexPositions[(indexTriangle * 3) + 0],
-        terrainObjectVertexPositions[(indexTriangle * 3) + 1],
-        terrainObjectVertexPositions[(indexTriangle * 3) + 2]
-    ];
-
-    // we sort by distance to camera pivot
-    arrayVerticesByDistance.sort((itemA, itemB) =>
-    {
-        return compareFnVertexDistanceToCameraPivot(itemA, itemB);
-    });
-
-    // now, the first two items will be our two closest vertices
-
-    console.log("");
-    console.log("closest vertex A:");
-    console.log(arrayVerticesByDistance[0]);
-    console.log("closest vertex B:");
-    console.log(arrayVerticesByDistance[1]);
-
-    // just for testing
-    // let's place ourselves inbetween them
-
-    cameraPivot.position.x = (arrayVerticesByDistance[0].x + arrayVerticesByDistance[1].x) / 2;
-    cameraPivot.position.y = (arrayVerticesByDistance[0].y + arrayVerticesByDistance[1].y) / 2;
-    cameraPivot.position.z = (arrayVerticesByDistance[0].z + arrayVerticesByDistance[1].z) / 2;
-
-    cameraPivot.position.addScaledVector(terrainObjectTriangleNormals[indexTriangle], 1.0);
-}
-
-function compareFnVertexDistanceToCameraPivot(itemA, itemB)
-{
-    // we first get dist of both items
-    const distA = cameraPivot.position.distanceTo(itemA);
-    const distB = cameraPivot.position.distanceTo(itemB);
-
-    //
-    if (distA < distB) {
-      return -1;
-    }
-    else if (distA > distB) {
-      return 1;
-    }
-
-    // if the distances are the same
-    // we then need to sort in some other way
-    // so that vertices with identical distances
-    // aren't jumbled together
-    if(itemA.x < itemB.x || itemA.y < itemB.y || itemA.z < itemB.z)
-    {
-        return -1;
-    }
-
-    // otherwise, ignore
-    return 0;
-}
-
 function reAlignCameraToGravity()
 {
     console.log("() reAlignCameraToGravity");
 
-    // code here
+    // successfully realigns
+    // though would love to skip the jarring rotation that comes with it
     cameraPivot.quaternion.setFromUnitVectors(scene.up, terrainObjectTriangleNormals[indexTriangle]);
 }
 
 function resetCamera()
 {
+    //
+    indexTriangle = -1;
+
     //
     cameraPivot.position.x = 0.0;
     cameraPivot.position.y = 20.0;
@@ -1082,9 +1002,6 @@ function resetCamera()
     cameraPivot.rotation.x = 0.0;
     cameraPivot.rotation.y = 0.0;
     cameraPivot.rotation.z = 0.0;
-
-    //
-    indexTriangle = -1;
 }
 
 // we find the camera gravity perpendiculars before we handle movement
