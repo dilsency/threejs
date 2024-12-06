@@ -865,43 +865,33 @@ async function handleKeyDown(e)
 {
     keyboard[e.code] = true;
 
+    //attemptToMoveToTriangleCenter();
+    //attemptToLookAtTriangleCenter();
+
     switch (e.code)
     {
         case 'Digit1':
-            attemptToMoveToTriangleCenter();
-            break;
-
-        case 'Digit2':
-            attemptToLookAtTriangleCenter();
-            break;
-
-        case 'Digit3':
             cameraPivot.rotation.order = "XYZ";
             break;
 
-        case 'Digit4':
+        case 'Digit2':
             cameraPivot.rotation.order = "ZYX";
-            //cameraPivot.quaternion.setFromUnitVectors(scene.up, terrainObjectTriangleNormals[indexTriangle]);
+            break;
+
+        case 'Digit3':
+            cameraPivot.rotation.order = "YZX";
+            break;
+
+        case 'Digit4':
+            cameraPivot.rotation.order = "ZXY";
             break;
 
         case 'Digit5':
-            cameraPivot.rotation.order = "YZX";
-            //cameraPivot.quaternion.setFromUnitVectors(scene.up, terrainObjectTriangleNormals[indexTriangle]);
+            cameraPivot.rotation.order = "YXZ";
             break;
 
         case 'Digit6':
-            cameraPivot.rotation.order = "ZXY";
-            //cameraPivot.quaternion.setFromUnitVectors(scene.up, terrainObjectTriangleNormals[indexTriangle]);
-            break;
-
-        case 'Digit7':
-            cameraPivot.rotation.order = "YXZ";
-            //cameraPivot.quaternion.setFromUnitVectors(scene.up, terrainObjectTriangleNormals[indexTriangle]);
-            break;
-
-        case 'Digit8':
             cameraPivot.rotation.order = "XZY";
-            //cameraPivot.quaternion.setFromUnitVectors(scene.up, terrainObjectTriangleNormals[indexTriangle]);
             break;
 
         case 'Space':
