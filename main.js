@@ -875,6 +875,35 @@ async function handleKeyDown(e)
             attemptToLookAtTriangleCenter();
             break;
 
+        case 'Digit3':
+            cameraPivot.rotation.order = "XYZ";
+            break;
+
+        case 'Digit4':
+            cameraPivot.rotation.order = "ZYX";
+            //cameraPivot.quaternion.setFromUnitVectors(scene.up, terrainObjectTriangleNormals[indexTriangle]);
+            break;
+
+        case 'Digit5':
+            cameraPivot.rotation.order = "YZX";
+            //cameraPivot.quaternion.setFromUnitVectors(scene.up, terrainObjectTriangleNormals[indexTriangle]);
+            break;
+
+        case 'Digit6':
+            cameraPivot.rotation.order = "ZXY";
+            //cameraPivot.quaternion.setFromUnitVectors(scene.up, terrainObjectTriangleNormals[indexTriangle]);
+            break;
+
+        case 'Digit7':
+            cameraPivot.rotation.order = "YXZ";
+            //cameraPivot.quaternion.setFromUnitVectors(scene.up, terrainObjectTriangleNormals[indexTriangle]);
+            break;
+
+        case 'Digit8':
+            cameraPivot.rotation.order = "XZY";
+            //cameraPivot.quaternion.setFromUnitVectors(scene.up, terrainObjectTriangleNormals[indexTriangle]);
+            break;
+
         case 'Space':
             updateClosestGravity();
             break;
