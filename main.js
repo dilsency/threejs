@@ -894,6 +894,11 @@ async function handleKeyDown(e)
             cameraPivot.rotation.order = "XZY";
             break;
 
+        case 'Digit0':
+            camera.up = terrainObjectTriangleNormals[indexTriangle];
+            camera.lookAt(terrainObjectTrianglePositions[indexTriangle]);
+            break;
+
         case 'Space':
             updateClosestGravity();
             break;
