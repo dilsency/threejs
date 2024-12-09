@@ -101,3 +101,38 @@ export function getVertexWorldPositionByIndex(object, index)
     //
     return vertexPositionA;
 }
+
+
+
+
+//
+
+
+
+export function getSignOfPointInTriangle(pointA, pointB, pointC)
+{
+    // https://stackoverflow.com/a/2049593
+    // we compare x and z though...
+    // ...as those are more relevant to us
+    return (pointA.x - pointC.x) * (pointB.z - pointC.z) - (pointB.x - pointC.x) * (pointA.z - pointC.z);
+    return (pointA.x - pointC.x) * (pointB.y - pointC.y) - (pointB.x - pointC.x) * (pointA.y - pointC.y);
+}
+
+export function isPointInsideTriangle(pointToCompare, vertexA, vertexB, vertexC)
+{
+    // https://stackoverflow.com/a/2049593
+    var distanceA, distanceB, distanceC;
+    var isThereANegativeSign, isThereAPositiveSign;
+
+    //
+    distanceA = getSignOfPointInTriangle(pointToCompare, vertexA, vertexB);
+    distanceB = getSignOfPointInTriangle(pointToCompare, vertexB, vertexC);
+    distanceC = getSignOfPointInTriangle(pointToCompare, vertexC, vertexA);
+
+    //
+    isThereANegativeSign = (distanceA < 0) || (distanceB < 0) || (distanceC < 0);
+    isThereAPositiveSign = (distanceA > 0) || (distanceB > 0) || (distanceC > 0);
+
+    //
+    return !(isThereANegativeSign && isThereAPositiveSign);
+}

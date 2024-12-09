@@ -43,6 +43,9 @@ var loaderTexture;
 // may be useful to have a fallback texture
 var defaultTexture;
 
+// group
+var terrainObjectGroup;
+
 // reference to terrain object once loaded
 var terrainObject;
 var terrainObjectPositionCount = 0;
@@ -52,9 +55,16 @@ var terrainObjectPositionItemSize = 1;
 var terrainObjectVertexPositions = [];
 var terrainObjectVertexNormals = [];
 
-// triangle positions and normals, for convenience later
+// triangle positions, triangle normals, and triangle planes, for convenience later
 var terrainObjectTrianglePositions = [];
 var terrainObjectTriangleNormals = [];
+var terrainObjectTrianglePlanes = [];
+var terrainObjectTriangleSidePlanes = [];
+const terrainObjectEdgePadding = 1.0;// will affect how far we need to go off of a plane before we start falling
+
+//
+var playerIsAboveCurrentPlane = true;
+var playerIsWithinCurrentTrianglePrism = true;
 
 //
 var arrayArrowHelpers = [];
@@ -91,6 +101,8 @@ var mouseX = 0;
 var mouseY = 0;
 
 //
+const throttleMaxUpdateClosestGravity = 1.0;
+var throttleUpdateClosestGravity = 0;
 const throttleMaxTextLog = 0.2;
 var throttleTextLog = 0;
 
@@ -247,6 +259,10 @@ function init()
     }
     function initTerrain()
     {
+        // terrain group
+        terrainObjectGroup = new THREE.Group();
+        scene.add(terrainObjectGroup);
+
         // Load the fallback texture
         loaderTexture.load
         (
@@ -519,13 +535,12 @@ function loadOBJ(obj)
 {
     //
     terrainObject = obj.children[0];
-    scene.add(terrainObject);
+    terrainObjectGroup.add(terrainObject);
 
     //
     terrainObject.scale.x *= 20.0;
     terrainObject.scale.y *= 20.0;
     terrainObject.scale.z *= 20.0;
-    terrainObject.position.y -= 3.0;
 
     //
     terrainObject.material = new THREE.MeshStandardMaterial({ 
@@ -557,7 +572,7 @@ function loadOBJ(obj)
 
     //
     const helper = new VertexNormalsHelper( terrainObject, 1, 0xff0000 );
-    scene.add(helper);
+    terrainObjectGroup.add(helper);
     
     //
     setDefaultValues();
@@ -590,61 +605,108 @@ function generateTriangleData(terrainObject, terrainObjectPositionAttribute, ter
     if(terrainObjectPositionItemSize != terrainObjectNormalItemSize){return;}
 
     //
+    const centerOfTerrainObject = new THREE.Vector3(0,0,0);
+
+    //
     for(var i = 0; i < terrainObjectPositionCount; i += terrainObjectPositionItemSize)
     {  
         // position
         const positionTriangleData = HelperMesh.getPositionTriangleData(terrainObject, terrainObjectPositionAttribute, i, terrainObjectPositionItemSize);
-        addPositionTriangleDataToList(positionTriangleData);
+        const average3Vertex = getAverage3Vertex(positionTriangleData);
+        addPositionTriangleDataToList(positionTriangleData, average3Vertex);
 
         // normal
         const normalTriangleData = HelperMesh.getNormalTriangleData(terrainObject, terrainObjectNormalAttribute, i, terrainObjectNormalItemSize);
-        addNormalTriangleDataToList(positionTriangleData, normalTriangleData);
+        const faceNormal = getFaceNormal(positionTriangleData, normalTriangleData);
+        addNormalTriangleDataToList(normalTriangleData, faceNormal);
+
+        // plane on the bottom
+        const dist = centerOfTerrainObject.distanceTo(average3Vertex);
+        const plane = new THREE.Plane(faceNormal, -dist - 0.01);
+        terrainObjectTrianglePlanes.push(plane);
+
+        // we could also generate planes for each vertex pair of the triangle
+
+        // a-b
+        const planeAB = new THREE.Plane();
+        const midpointAB = new THREE.Vector3(
+            (positionTriangleData[0].x + positionTriangleData[1].x) / 2,
+            (positionTriangleData[0].y + positionTriangleData[1].y) / 2,
+            (positionTriangleData[0].z + positionTriangleData[1].z) / 2
+        );
+        const normalAB = new THREE.Vector3(
+            average3Vertex.x - midpointAB.x,
+            average3Vertex.y - midpointAB.y,
+            average3Vertex.z - midpointAB.z
+        );
+        normalAB.normalize();
+        planeAB.setFromNormalAndCoplanarPoint(normalAB, midpointAB);
+        planeAB.constant += terrainObjectEdgePadding;
+        terrainObjectTriangleSidePlanes.push(planeAB);
+
+        // a-c
+        const planeAC = new THREE.Plane();
+        const midpointAC = new THREE.Vector3(
+            (positionTriangleData[0].x + positionTriangleData[2].x) / 2,
+            (positionTriangleData[0].y + positionTriangleData[2].y) / 2,
+            (positionTriangleData[0].z + positionTriangleData[2].z) / 2
+        );
+        const normalAC = new THREE.Vector3(
+            average3Vertex.x - midpointAC.x,
+            average3Vertex.y - midpointAC.y,
+            average3Vertex.z - midpointAC.z
+        );
+        normalAC.normalize();
+        planeAC.setFromNormalAndCoplanarPoint(normalAC, midpointAC);
+        planeAC.constant += terrainObjectEdgePadding;
+        terrainObjectTriangleSidePlanes.push(planeAC);
+
+        // a-c
+        const planeBC = new THREE.Plane();
+        const midpointBC = new THREE.Vector3(
+            (positionTriangleData[1].x + positionTriangleData[2].x) / 2,
+            (positionTriangleData[1].y + positionTriangleData[2].y) / 2,
+            (positionTriangleData[1].z + positionTriangleData[2].z) / 2
+        );
+        const normalBC = new THREE.Vector3(
+            average3Vertex.x - midpointBC.x,
+            average3Vertex.y - midpointBC.y,
+            average3Vertex.z - midpointBC.z
+        );
+        normalBC.normalize();
+        planeBC.setFromNormalAndCoplanarPoint(normalBC, midpointBC);
+        planeBC.constant += terrainObjectEdgePadding;
+        terrainObjectTriangleSidePlanes.push(planeBC);
+
+        // plane helpers but only for 1 triangle
+        if(i == 0)
+        { 
+            const arrowAB = new THREE.ArrowHelper(normalAB, midpointAB, 1.0, 0xFF0000);
+            scene.add(arrowAB);
+
+            const arrowAC = new THREE.ArrowHelper(normalAC, midpointAC, 1.0, 0xFF0000);
+            scene.add(arrowAC);
+
+            const arrowBC = new THREE.ArrowHelper(normalBC, midpointBC, 1.0, 0xFF0000);
+            scene.add(arrowBC);
+        }
 
         //
         generateArrowInTriangleCenter(i, terrainObjectPositionItemSize);
     }
 }
 
-function addPositionTriangleDataToList(positionTriangleData)
+function getAverage3Vertex(positionTriangleData)
 {
-    // add to vertex list
-    for(var i = 0; i < 3; i++)
-    {
-        terrainObjectVertexPositions.push(new THREE.Vector3(positionTriangleData[i].x, positionTriangleData[i].y, positionTriangleData[i].z));
-    }
-
-    // add center (average) to triangle list
-    terrainObjectTrianglePositions.push(
-        new THREE.Vector3(
-            (positionTriangleData[0].x + positionTriangleData[1].x + positionTriangleData[2].x) / 3,
-            (positionTriangleData[0].y + positionTriangleData[1].y + positionTriangleData[2].y) / 3,
-            (positionTriangleData[0].z + positionTriangleData[1].z + positionTriangleData[2].z) / 3,
-        )
-    );
+    return new THREE.Vector3(
+        (positionTriangleData[0].x + positionTriangleData[1].x + positionTriangleData[2].x) / 3,
+        (positionTriangleData[0].y + positionTriangleData[1].y + positionTriangleData[2].y) / 3,
+        (positionTriangleData[0].z + positionTriangleData[1].z + positionTriangleData[2].z) / 3,
+    )
 }
 
-function generateArrowInTriangleCenter(index, itemSize)
+function getFaceNormal(positionTriangleData, normalTriangleData)
 {
-    const actualIndex = index / itemSize;
-
-    const length = 1;
-    const hex = 0xffff00;
-
-    const arrowHelper = new THREE.ArrowHelper(terrainObjectTriangleNormals[actualIndex], terrainObjectTrianglePositions[actualIndex], length, hex);
-    scene.add(arrowHelper);
-    arrayArrowHelpers.push(arrowHelper);
-}
-
-function addNormalTriangleDataToList(positionTriangleData, normalTriangleData)
-{
-    // add to vertex list
-    for(var i = 0; i < 3; i++)
-    {
-        terrainObjectVertexNormals.push(new THREE.Vector3(normalTriangleData[i].x, normalTriangleData[i].y, normalTriangleData[i].z));
-    }
-
-    // add center (average) to triangle list
-
     // we get a face normal
     // and convert it to world coordinates
     const faceNormal = HelperMesh.getFaceNormal(
@@ -659,6 +721,42 @@ function addNormalTriangleDataToList(positionTriangleData, normalTriangleData)
     // not sure why the .normalize() above doesn't do this
     // but this one is necessary
     faceNormal.normalize();
+
+    //
+    return faceNormal;
+}
+
+function addPositionTriangleDataToList(positionTriangleData, average3Vertex)
+{
+    // add to vertex list
+    for(var i = 0; i < 3; i++)
+    {
+        terrainObjectVertexPositions.push(new THREE.Vector3(positionTriangleData[i].x, positionTriangleData[i].y, positionTriangleData[i].z));
+    }
+
+    // add center (average) to triangle list
+    terrainObjectTrianglePositions.push(average3Vertex);
+}
+
+function generateArrowInTriangleCenter(index, itemSize)
+{
+    const actualIndex = index / itemSize;
+
+    const length = 1;
+    const hex = 0xffff00;
+
+    const arrowHelper = new THREE.ArrowHelper(terrainObjectTriangleNormals[actualIndex], terrainObjectTrianglePositions[actualIndex], length, hex);
+    scene.add(arrowHelper);
+    arrayArrowHelpers.push(arrowHelper);
+}
+
+function addNormalTriangleDataToList(normalTriangleData, faceNormal)
+{
+    // add to vertex list
+    for(var i = 0; i < 3; i++)
+    {
+        terrainObjectVertexNormals.push(new THREE.Vector3(normalTriangleData[i].x, normalTriangleData[i].y, normalTriangleData[i].z));
+    }
 
     // add to list
     terrainObjectTriangleNormals.push(faceNormal);
@@ -744,6 +842,9 @@ function update()
 
         //
         checkControlsMovementMK();
+
+        //
+        updatePlayerGravity();
     }
 
     // text log should be last of the update functions
@@ -894,9 +995,16 @@ async function handleKeyDown(e)
             cameraPivot.rotation.order = "XZY";
             break;
 
+        case 'Digit8':
+            cameraPivotLookAtForward();
+            break;
+
+        case 'Digit9':
+            cameraLookAtForward();
+            break;
+
         case 'Digit0':
-            camera.up = terrainObjectTriangleNormals[indexTriangle];
-            camera.lookAt(terrainObjectTrianglePositions[indexTriangle]);
+            reAlignCameraToGravity();
             break;
 
         case 'Space':
@@ -905,10 +1013,6 @@ async function handleKeyDown(e)
 
         case 'Enter':
             toggleTextControls();
-            break;
-
-        case 'M':
-            reAlignCameraToGravity();
             break;
     };
 }
@@ -938,9 +1042,26 @@ async function handleMouseLeftClick(e)
     await handleLockPointer();
 }
 
+
+function cameraLookAtForward()
+{
+    // this is it sweety
+
+    //
+    cameraPivot.up = terrainObjectTriangleNormals[indexTriangle];
+    camera.up = terrainObjectTriangleNormals[indexTriangle];
+
+    //
+    const a = new THREE.Vector3(0,0,0);
+    a.copy(cameraPivot.position);
+    a.addScaledVector(cameraDirection, 1.0);
+    camera.lookAt(a);
+}
+
 function updateClosestGravity()
 {
-    console.log("() updateClosestGravity");
+    // early return: throttling
+    //if((clock.getElapsedTime() - throttleUpdateClosestGravity) < throttleMaxUpdateClosestGravity){return;}
 
     //
     var closestTriangleIndex = -1;
@@ -961,12 +1082,21 @@ function updateClosestGravity()
     // early return: didn't find
     if(i < 0){return;}
 
+    // end of early returns: reset throttle
+    //throttleUpdateClosestGravity = clock.getElapsedTime();
+
+    //
+    console.log("() updateClosestGravity");
+
     // update gravity index
     // the rest is handled in update()
     indexTriangle = closestTriangleIndex;
 
     // re-align camera
-    reAlignCameraToGravity();
+    cameraLookAtForward();
+
+    // re-align camera
+    //reAlignCameraToGravity();
 }
 
 function attemptToMoveToTriangleCenter()
@@ -1119,6 +1249,89 @@ function checkControlsMovementMK()
     cameraPivot.position.z += directionCameraGravityRight.z * 0.1 * horizontalPolarity;
 }
 
+var playerIsWithinTriangleSideAB = false;
+var playerIsWithinTriangleSideAC = false;
+var playerIsWithinTriangleSideBC = false;
+function updateIsPlayerWithinCurrentTrianglePrism()
+{
+    // the player is within all 3 triangle sides
+
+    // early return: no index
+    if(indexTriangle < 0){return;}
+
+    // early return: index out of bounds
+    if(terrainObjectTriangleSidePlanes.length < (indexTriangle * 3 + 2))
+    {
+        console.log("out of bounds!");
+        console.log("length: " + terrainObjectTriangleSidePlanes.length);
+        console.log("index: " + (indexTriangle * 3 + 2));
+    }
+
+    // a-b
+    const planeAB = terrainObjectTriangleSidePlanes[indexTriangle * 3 + 0];
+    if(planeAB == null){return;}
+    const signedDistanceAB = planeAB.distanceToPoint(cameraPivot.position);
+    playerIsWithinTriangleSideAB = (signedDistanceAB >= 0);
+
+    // a-c
+    const planeAC = terrainObjectTriangleSidePlanes[indexTriangle * 3 + 1];
+    if(planeAC == null){return;}
+    const signedDistanceAC = planeAC.distanceToPoint(cameraPivot.position);
+    playerIsWithinTriangleSideAC = (signedDistanceAC >= 0);
+
+    // a-c
+    const planeBC = terrainObjectTriangleSidePlanes[indexTriangle * 3 + 2];
+    if(planeBC == null){return;}
+    const signedDistanceBC = planeBC.distanceToPoint(cameraPivot.position);
+    playerIsWithinTriangleSideBC = (signedDistanceBC >= 0);
+
+    // only if all conditions match
+    if(playerIsWithinTriangleSideAB && playerIsWithinTriangleSideAC && playerIsWithinTriangleSideBC){
+        playerIsWithinCurrentTrianglePrism = true;
+    }
+    // if any fail, well
+    else {
+        playerIsWithinCurrentTrianglePrism = false;
+    }
+
+    //
+    return playerIsWithinCurrentTrianglePrism;
+}
+
+function updateIsPlayerAboveCurrentPlane()
+{
+    //
+    const offset = 1.5;
+    //
+    const res = terrainObjectTrianglePlanes[indexTriangle].distanceToPoint(cameraPivot.position);
+    //
+    playerIsAboveCurrentPlane = (res >= offset);
+}
+
+function updatePlayerGravity()
+{
+    // early return: no index
+    if(indexTriangle < 0){return;}
+    // early return: no controls
+    if(getIsPointerUnlocked()){return;}
+
+    //
+    updateIsPlayerWithinCurrentTrianglePrism();
+    updateIsPlayerAboveCurrentPlane();
+
+    // early return: is within triangle prism, but is below plane
+    if(playerIsWithinCurrentTrianglePrism && !playerIsAboveCurrentPlane){return;}
+
+    //
+    cameraPivot.position.addScaledVector(terrainObjectTriangleNormals[indexTriangle], -0.2);
+
+    //
+    if(!playerIsWithinCurrentTrianglePrism && !playerIsAboveCurrentPlane)
+    {
+        updateClosestGravity();
+    }
+}
+
 function toggleTextControls()
 {
     boolTextControls = !boolTextControls;
@@ -1162,6 +1375,20 @@ function updateTextLog()
     resultString += "\n";
     resultString += "current triangle index\n";
     resultString += "\t" + indexTriangle + "\n";
+
+    //
+    resultString += "\n";
+    resultString += "above current plane\n";
+    resultString += "\t" + playerIsAboveCurrentPlane + "\n";
+
+    //
+    resultString += "\n";
+    resultString += "within current triangle side a-b\n";
+    resultString += "\t" + playerIsWithinTriangleSideAB + "\n";
+    resultString += "within current triangle side a-c\n";
+    resultString += "\t" + playerIsWithinTriangleSideAC + "\n";
+    resultString += "within current triangle side b-c\n";
+    resultString += "\t" + playerIsWithinTriangleSideBC + "\n";
 
     //
     if(indexTriangle >= 0){
