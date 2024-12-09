@@ -18,6 +18,12 @@ var cameraDirection;
 var cameraDirectionRight;
 var cameraDirectionUp;
 
+var cameraFollower;// we will use this to lerp
+var cameraRotationLerpX = 0;
+var cameraRotationLerpY = 0;
+var cameraRotationLerpZ = 0;
+var cameraRotationLerpCount = 0;
+
 // camera gravity perpendiculars
 // we move along these axes
 var directionCameraGravityForward;
@@ -100,9 +106,14 @@ var hasControls = false;
 var mouseX = 0;
 var mouseY = 0;
 
-//
-const throttleMaxUpdateClosestGravity = 1.0;
-var throttleUpdateClosestGravity = 0;
+// lerps
+var gravityDirectionLerpOld;
+const gravityDirectionLerpCountMax = 8;
+var gravityDirectionLerpCount = gravityDirectionLerpCountMax + 1;
+
+// throttles
+const throttleMaxCameraLerp = 0.1;
+var throttleCameraLerp = 0;
 const throttleMaxTextLog = 0.2;
 var throttleTextLog = 0;
 
@@ -121,6 +132,8 @@ function init()
         scene.environment = null;
 
         //
+        cameraFollower = new THREE.Object3D();
+        scene.add(cameraFollower);
         cameraPivot = new THREE.Object3D();
         cameraPivot.position.z = 5;
         scene.add(cameraPivot);
@@ -134,6 +147,9 @@ function init()
         cameraPivot.add(camera);
         cameraDirection = new THREE.Vector3();
         camera.getWorldDirection(cameraDirection);
+
+        //
+        gravityDirectionLerpOld = new THREE.Vector3();
 
         // camera forward perpendiculars
         cameraDirectionRight = new THREE.Vector3(1,0,0);
@@ -847,6 +863,9 @@ function update()
         updatePlayerGravity();
     }
 
+    //
+    updateCameraLerp();
+
     // text log should be last of the update functions
     updateTextLog();
 
@@ -1045,17 +1064,39 @@ async function handleMouseLeftClick(e)
 
 function cameraLookAtForward()
 {
-    // this is it sweety
+    console.log("() look at forward")
 
     //
+    cameraFollower.position.copy(cameraPivot.position);
+
+    //
+    cameraFollower.up = terrainObjectTriangleNormals[indexTriangle];
     cameraPivot.up = terrainObjectTriangleNormals[indexTriangle];
     camera.up = terrainObjectTriangleNormals[indexTriangle];
+
+    // old rotation
+    const cameraRotationXOld = camera.rotation.x;
+    const cameraRotationYOld = camera.rotation.y;
+    const cameraRotationZOld = camera.rotation.z;
 
     //
     const a = new THREE.Vector3(0,0,0);
     a.copy(cameraPivot.position);
     a.addScaledVector(cameraDirection, 1.0);
     camera.lookAt(a);
+
+    return;
+
+    //
+    cameraRotationLerpX = cameraRotationXOld - camera.rotation.x;
+    cameraRotationLerpY = cameraRotationYOld - camera.rotation.y;
+    cameraRotationLerpZ = cameraRotationZOld - camera.rotation.z;
+    cameraRotationLerpCount = 200;
+
+    //
+    camera.rotation.x = cameraRotationXOld;
+    camera.rotation.y = cameraRotationYOld;
+    camera.rotation.z = cameraRotationZOld;
 }
 
 function updateClosestGravity()
@@ -1088,12 +1129,16 @@ function updateClosestGravity()
     //
     console.log("() updateClosestGravity");
 
+    // update old and lerp count
+    gravityDirectionLerpOld.copy(terrainObjectTriangleNormals[indexTriangle]);
+    gravityDirectionLerpCount = 0;
+
     // update gravity index
     // the rest is handled in update()
     indexTriangle = closestTriangleIndex;
 
     // re-align camera
-    cameraLookAtForward();
+    //cameraLookAtForward();
 
     // re-align camera
     //reAlignCameraToGravity();
@@ -1310,6 +1355,10 @@ function updateIsPlayerAboveCurrentPlane()
 
 function updatePlayerGravity()
 {
+    // to do
+    // add throttle here?
+
+
     // early return: no index
     if(indexTriangle < 0){return;}
     // early return: no controls
@@ -1330,6 +1379,38 @@ function updatePlayerGravity()
     {
         updateClosestGravity();
     }
+}
+
+function updateCameraLerp()
+{
+    // early return: flag off
+    if(gravityDirectionLerpCount > gravityDirectionLerpCountMax){return;}
+
+    // early return: throttling
+    //if((clock.getElapsedTime() - throttleCameraLerp) < throttleMaxCameraLerp){return;}
+
+    // end of early returns: reset throttle
+    //throttleCameraLerp = clock.getElapsedTime();
+
+    //
+    const vec3 = new THREE.Vector3();
+    vec3.copy(gravityDirectionLerpOld);
+    const alpha = gravityDirectionLerpCount / gravityDirectionLerpCountMax;
+    console.log(alpha);
+    vec3.lerp(terrainObjectTriangleNormals[indexTriangle], alpha);
+
+    // update to the lerped direction
+    cameraPivot.up = vec3;
+    camera.up = vec3;
+
+    //
+    const a = new THREE.Vector3(0,0,0);
+    a.copy(cameraPivot.position);
+    a.addScaledVector(cameraDirection, 1.0);
+    camera.lookAt(a);
+
+    //
+    gravityDirectionLerpCount++;
 }
 
 function toggleTextControls()
