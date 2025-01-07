@@ -636,10 +636,27 @@ function generateTriangleData(terrainObject, terrainObjectPositionAttribute, ter
         const faceNormal = getFaceNormal(positionTriangleData, normalTriangleData);
         addNormalTriangleDataToList(normalTriangleData, faceNormal);
 
-        // plane on the bottom
+        // plane on the bottom / floor
         const dist = centerOfTerrainObject.distanceTo(average3Vertex);
-        const plane = new THREE.Plane(faceNormal, -dist - 0.01);
-        terrainObjectTrianglePlanes.push(plane);
+        // we need to check that we don't already have a plane with that normal and const, though
+        const floorPlaneAlreadyExists = false;
+        for(var j = terrainObjectTrianglePlanes.length - 1; j >= 0; j--)
+        {
+            const comparisonX = terrainObjectTrianglePlanes[j].normal.x == faceNormal.x;
+            const comparisonY = terrainObjectTrianglePlanes[j].normal.y == faceNormal.y;
+            const comparisonZ = terrainObjectTrianglePlanes[j].normal.z == faceNormal.z;
+            const comparisonC = terrainObjectTrianglePlanes[j].constant == -dist;
+            if(comparisonX && comparisonY && comparisonZ && comparisonC){floorPlaneAlreadyExists = true;break;}
+        }
+        if(!floorPlaneAlreadyExists)
+        {
+            console.log("creating new plane for i==" + i + " !");
+            const plane = new THREE.Plane(faceNormal, -dist - 0.01);
+            terrainObjectTrianglePlanes.push(plane);
+        }
+        else {
+            console.log("for i==" + i + " floor plane (index=="+ j +") already existed!");
+        }
 
         // we could also generate planes for each vertex pair of the triangle
 
