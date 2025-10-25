@@ -1,0 +1,22 @@
+{
+  "name": "Decosahedron",
+  "short_name": "Deco",
+  
+  "description": "Github Page as a Progressive Web App",
+ 
+  "scope": "/threejs/",
+  "start_url": "/threejs/",
+ 
+  "background_color": "#000000",
+  "theme_color": "#000000",
+ 
+  "display": "standalone", 
+ 
+  "icons": [
+      {
+        "src": "/threejs/img/icon.png",
+        "type": "image/png",
+        "sizes": "272x272"
+      }
+  ]
+}

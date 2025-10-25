@@ -1,7 +1,11 @@
+// https://christianheilmann.com/2022/01/13/turning-a-github-page-into-a-progressive-web-app/
+
 <!DOCTYPE html>
 <html>
 <head>
 <title>Dodecahedron</title>
+<link rel="canonical" href="https://dilsency.github.io/threejs/" />
+<link rel="manifest" href="/threejs/manifest.webmanifest">
 <style>
 html,body,canvas{margin:0;background-color:#000000;}
 </style>
@@ -28,5 +32,15 @@ html,body,canvas{margin:0;background-color:#000000;}
 </head>
 <body>
 <script type="module" src="./main.js"></script>
+
+<script>
+    /* service worker: necessary for PWA */
+    if (navigator.serviceWorker) {
+        navigator.serviceWorker.register (
+          '/threejs/sw.js',
+          {scope: '/threejs/'}
+        )
+      }
+</script>
 </body>
 </html>
