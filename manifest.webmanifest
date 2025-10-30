@@ -4,8 +4,8 @@
   
   "description": "Github Page as a Progressive Web App",
  
-  "scope": "/threejs/",
-  "start_url": "/threejs/",
+  "scope": "/",
+  "start_url": "/",
  
   "background_color": "#000000",
   "theme_color": "#000000",
@@ -14,7 +14,7 @@
  
   "icons": [
       {
-        "src": "/threejs/img/icon.png",
+        "src": "/img/icon.png",
         "type": "image/png",
         "sizes": "272x272"
       }

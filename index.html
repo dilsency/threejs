@@ -1,11 +1,12 @@
 // https://christianheilmann.com/2022/01/13/turning-a-github-page-into-a-progressive-web-app/
+// changed /threejs/... to /... from some PWA urls, seems to be more accurate
 
 <!DOCTYPE html>
 <html>
 <head>
 <title>Dodecahedron</title>
 <link rel="canonical" href="https://dilsency.github.io/threejs/" />
-<link rel="manifest" href="/threejs/manifest.webmanifest">
+<link rel="manifest" href="/manifest.webmanifest">
 <style>
 html,body,canvas{margin:0;background-color:#000000;}
 </style>
@@ -36,6 +37,7 @@ html,body,canvas{margin:0;background-color:#000000;}
 <script>
     /* service worker: necessary for PWA */
     if (navigator.serviceWorker) {
+      console.log("register service worker");
         navigator.serviceWorker.register (
           '/threejs/sw.js',
           {scope: '/threejs/'}
