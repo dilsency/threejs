@@ -1,6 +1,6 @@
 // Change this to your repository name
 // changed from '/threejs' to just ''
-var GHPATH = '';
+var GHPATH = '/threejs';
  
 // Choose a different app prefix name
 var APP_PREFIX = 'gppwa_';

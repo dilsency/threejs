@@ -6,7 +6,7 @@
 <head>
 <title>Dodecahedron</title>
 <link rel="canonical" href="https://dilsency.github.io/threejs/" />
-<link rel="manifest" href="/manifest.webmanifest">
+<link rel="manifest" href="manifest.webmanifest">
 <style>
 html,body,canvas{margin:0;background-color:#000000;}
 </style>
@@ -42,6 +42,8 @@ html,body,canvas{margin:0;background-color:#000000;}
           '/threejs/sw.js',
           {scope: '/threejs/'}
         )
+        .then(() => { console.log('Service Worker Registered'); })
+        ;
       }
 </script>
 </body>
