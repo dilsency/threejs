@@ -1,5 +1,70 @@
 // hold ctrl k then 0
 
+// service worker: necessary for PWA
+// must be placed first?
+if (navigator.serviceWorker) {
+    console.log("register service worker");
+    navigator.serviceWorker.register (
+        '/sw2.js',
+        {scope: '/'}
+    )
+    .then(() => {
+        console.log('Service Worker Registered');
+        console.dir(navigator.serviceWorker);
+        console.dir(navigator.serviceWorker.URLS);
+        console.dir(navigator.serviceWorker.controller.URLS);
+
+        const hasManifest = doesManifestExistForCurrentPage();
+        if(hasManifest){console.log("has manifest");}
+        else {console.log("no manifest, sorry");}
+
+        console.dir(caches);
+        
+        caches.open('threejs').then((cache) => {
+            console.log(" ");
+            console.log("here is our threejs cache:");
+            console.dir(cache);
+            console.log(" ");
+        });
+
+    })
+    ;
+    }
+
+window.addEventListener('beforeinstallprompt', (event) => {
+  console.log("install prompt! should be a success, then?");
+});
+
+    // Source - https://stackoverflow.com/a
+// Posted by Jeff Posnick
+// Retrieved 2025-11-12, License - CC BY-SA 3.0
+
+async function doesManifestExistForCurrentPage() {
+  const manifestElement = document.querySelector('link[rel="manifest"]');
+  if (!manifestElement) {
+    return false;
+  }
+  const manifestUrl = manifestElement.getAttribute('href');
+  if (!manifestElement) {
+    return false;
+  }
+
+  // You could stop here and just return true.
+  // If you want to actually see if the manifest file exists on the
+  // server, use the following code:
+  try {
+    const manifestResponse = await fetch(manifestUrl);
+    // .ok will be true if fetch() returned a HTTP 2xx response,
+    // and false otherwise.
+    return manifestResponse.ok;
+  } catch (error) {
+    // Or return true?
+    // Depends on how you want to handle network failures.
+    return false;
+  }
+}
+
+
 import * as THREE from "three";
 import { GLTFLoader } from "three/addons/loaders/GLTFLoader.js";
 import { OBJLoader } from "three/addons/loaders/OBJLoader.js";

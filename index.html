@@ -33,18 +33,5 @@ html,body,canvas{margin:0;background-color:#000000;}
 </head>
 <body>
 <script type="module" src="./main.js"></script>
-
-<script>
-    /* service worker: necessary for PWA */
-    if (navigator.serviceWorker) {
-      console.log("register service worker");
-        navigator.serviceWorker.register (
-          '/threejs/sw.js',
-          {scope: '/threejs/'}
-        )
-        .then(() => { console.log('Service Worker Registered'); })
-        ;
-      }
-</script>
 </body>
 </html>

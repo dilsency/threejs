@@ -4,8 +4,8 @@
   
   "description": "Github Page as a Progressive Web App",
  
-  "scope": "/threejs",
-  "start_url": "/threejs",
+  "scope": "/",
+  "start_url": "/index.html",
  
   "background_color": "#000000",
   "theme_color": "#000000",
