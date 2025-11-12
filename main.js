@@ -5,8 +5,8 @@
 if (navigator.serviceWorker) {
     console.log("register service worker");
     navigator.serviceWorker.register (
-        '/sw2.js',
-        {scope: '/'}
+        '/threejs/sw2.js',
+        {scope: '/threejs'}
     )
     .then(() => {
         console.log('Service Worker Registered');
