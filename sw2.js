@@ -1,37 +1,37 @@
 self.addEventListener('install', (e) => {
   e.waitUntil(
     caches.open('threejs').then((cache) => cache.addAll([
-      '/',
-      '/index.html',
-      '/main.js',
+      '/threejs/',
+      '/threejs/index.html',
+      '/threejs/main.js',
 
-      '/models/Dodecahedron.obj',
-      '/models/Icosahedron.gltf',
-      '/models/Icosahedron.obj',
+      '/threejs/models/Dodecahedron.obj',
+      '/threejs/models/Icosahedron.gltf',
+      '/threejs/models/Icosahedron.obj',
 
-      '/textures/bunny_thickness_2.jpg',
-      '/textures/bunny_thickness.jpg',
-      '/textures/texture_default.jpg',
-      '/textures/white.jpg',
+      '/threejs/textures/bunny_thickness_2.jpg',
+      '/threejs/textures/bunny_thickness.jpg',
+      '/threejs/textures/texture_default.jpg',
+      '/threejs/textures/white.jpg',
 
-      '/textures/cube/skybox/nx.png',
-      '/textures/cube/skybox/ny.png',
-      '/textures/cube/skybox/nz.png',
-      '/textures/cube/skybox/px.png',
-      '/textures/cube/skybox/py.png',
-      '/textures/cube/skybox/pz.png',
+      '/threejs/textures/cube/skybox/nx.png',
+      '/threejs/textures/cube/skybox/ny.png',
+      '/threejs/textures/cube/skybox/nz.png',
+      '/threejs/textures/cube/skybox/px.png',
+      '/threejs/textures/cube/skybox/py.png',
+      '/threejs/textures/cube/skybox/pz.png',
 
-      '/shaders/fragment1.js',
-      '/shaders/vertex1.js',
+      '/threejs/shaders/fragment1.js',
+      '/threejs/shaders/vertex1.js',
 
-        '/helpers/helper_camera_rotation.js',
-        '/helpers/helper_generation_hud.js',
-        '/helpers/helper_generation_planet.js',
-        '/helpers/helper_mesh.js',
+        '/threejs/helpers/helper_camera_rotation.js',
+        '/threejs/helpers/helper_generation_hud.js',
+        '/threejs/helpers/helper_generation_planet.js',
+        '/threejs/helpers/helper_mesh.js',
 
-        '/img/icon.png',
-        '/css/styles.css',
-        '/js/app.js',
+        '/threejs/img/icon.png',
+        '/threejs/css/styles.css',
+        '/threejs/js/app.js',
 
     ])),
   );
