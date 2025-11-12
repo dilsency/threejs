@@ -29,9 +29,8 @@ self.addEventListener('install', (e) => {
         '/threejs/helpers/helper_generation_planet.js',
         '/threejs/helpers/helper_mesh.js',
 
-        '/threejs/img/icon.png',
-        '/threejs/css/styles.css',
-        '/threejs/js/app.js',
+        '/threejs/img/icon 192x192.png',
+        '/threejs/img/icon 512x512.png',
 
     ])),
   );
