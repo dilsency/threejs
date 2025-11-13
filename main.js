@@ -10,30 +10,40 @@ if (navigator.serviceWorker) {
     )
     .then(() => {
         console.log('Service Worker Registered');
-        console.dir(navigator.serviceWorker);
-        console.dir(navigator.serviceWorker.URLS);
-        console.dir(navigator.serviceWorker.controller.URLS);
+        //console.dir(navigator.serviceWorker);
+        //console.dir(navigator.serviceWorker.URLS);
+        //console.dir(navigator.serviceWorker.controller.URLS);
 
         const hasManifest = doesManifestExistForCurrentPage();
         if(hasManifest){console.log("has manifest");}
         else {console.log("no manifest, sorry");}
 
-        console.dir(caches);
+        //console.dir(caches);
         
-        caches.open('threejs').then((cache) => {
-            console.log(" ");
-            console.log("here is our threejs cache:");
-            console.dir(cache);
-            console.log(" ");
-        });
+        //caches.open('threejs').then((cache) => {
+        //    console.log(" ");
+        //    console.log("here is our threejs cache:");
+        //    console.dir(cache);
+        //    console.log(" ");
+        //});
 
     })
     ;
     }
 
+    let deferredPrompt;
 window.addEventListener('beforeinstallprompt', (event) => {
+
   console.log("install prompt! should be a success, then?");
+
+    //
+    deferredPrompt = event;
+    // Update UI notify the user they can install the PWA
+    showInstallPromotion();
 });
+
+function showInstallPromotion(){console.log("show install promotion");}
+function hideInstallPromotion(){console.log("show install promotion");}
 
     // Source - https://stackoverflow.com/a
 // Posted by Jeff Posnick
@@ -234,6 +244,8 @@ var skybox;
 const terrainColor = new THREE.Color("hsl(0,50%,80%)");
 
 // hud
+var hudButtonInstallPWA;
+
 var hudReticle;
 var hudReticleFill;
 var hudReticleLines;
@@ -800,6 +812,32 @@ function handleWindowResize(e)
 
 function generateHUD()
 {
+    hudButtonInstallPWA = document.createElement("button");
+    hudButtonInstallPWA.style.position = "fixed";
+    hudButtonInstallPWA.style.top = "0";
+    hudButtonInstallPWA.style.right = "0";
+    hudButtonInstallPWA.innerText = "install";
+    document.body.appendChild(hudButtonInstallPWA);
+    hudButtonInstallPWA.addEventListener('click', async () => {
+
+        console.log("on click install pwa");
+
+    // early return
+    if(deferredPrompt == null){console.log("no deferredPrompt");return;}
+
+// Hide the app provided install promotion
+  hideInstallPromotion();
+  // Show the install prompt
+  deferredPrompt.prompt();
+  // Wait for the user to respond to the prompt
+  const { outcome } = await deferredPrompt.userChoice;
+  // Optionally, send analytics event with outcome of user choice
+  console.log(`User response to the install prompt: ${outcome}`);
+  // We've used the prompt and can't use it again, throw it away
+  deferredPrompt = null;
+
+    });
+
     //
     const returnObjectGenerationHUD = HelperGenerationHUD.generateText(stringTextControls);
     //
